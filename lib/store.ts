@@ -1,11 +1,6 @@
 import { create } from 'zustand'
-import {
-  fetchTransactions, insertTransaction, deleteTransaction,
-  fetchGoals, upsertGoal,
-  fetchBalance, saveBalance,
-} from './db'
 
-export type TransactionType = 'income' | 'expense'
+export type TransactionType = 'income' | 'expense' | 'investment'
 
 export interface Transaction {
   id: string
@@ -14,7 +9,11 @@ export interface Transaction {
   amount: number
   description: string
   date: string
-  processed: boolean
+}
+
+export interface Patrimony {
+  account: string
+  balance: number
 }
 
 export interface Goal {
@@ -25,29 +24,37 @@ export interface Goal {
 
 export interface FinanceState {
   transactions: Transaction[]
-  balance: number
+  patrimony: Patrimony[]
   goals: Goal[]
-  synced: boolean   // true = dados vêm do Supabase
 
-  addTransaction: (tx: Omit<Transaction, 'id'>) => Promise<void>
-  removeTransaction: (id: string) => Promise<void>
-  addTiktokIncome: (amount: number) => Promise<void>
-  updateGoal: (month: string, actual: number) => Promise<void>
+  // Actions
+  addTransaction: (tx: Omit<Transaction, 'id'>) => void
+  updateTransaction: (id: string, updates: Partial<Omit<Transaction, 'id'>>) => void
+  removeTransaction: (id: string) => void
+  updatePatrimony: (account: string, balance: number) => void
+  updateGoal: (month: string, actual: number) => void
 
-  loadFromStorage: () => void
-  loadFromSupabase: () => Promise<void>
-
-  getToday: () => { income: number; expense: number; transactions: Transaction[] }
+  // Computed
+  getBalance: () => number
+  getToday: () => { income: number; expense: number; investment: number; transactions: Transaction[] }
   getLast7Days: () => { income: number; expense: number; transactions: Transaction[] }
-  getThisMonth: () => { income: number; expense: number; transactions: Transaction[] }
+  getThisMonth: () => { income: number; expense: number; investment: number; transactions: Transaction[] }
   getByCategory: (days?: number) => Record<string, number>
-  getInsights: () => {
-    biggestExpense: Transaction | null
-    mostSpentCategory: string
-    dailyAverage: number
-    projectedMonthly: number
-  }
+  getInsights: () => { dailyAverage: number; projectedMonthly: number; mostSpentCategory: string; biggestExpense: Transaction | null }
+  getTotalPatrimony: () => number
+
+  // Storage
+  load: () => void
+  save: (state: any) => void
 }
+
+const INITIAL_PATRIMONY: Patrimony[] = [
+  { account: 'C6 Investimentos', balance: 9976.31 },
+  { account: 'XP Investimentos', balance: 0 },
+  { account: 'Mercado Pago', balance: 303.44 },
+  { account: 'Dinheiro em conta', balance: 420.10 },
+  { account: 'Santander', balance: 284.78 },
+]
 
 const INITIAL_GOALS: Goal[] = [
   { month: 'Ago/2026', target: 3000, actual: null },
@@ -62,130 +69,130 @@ const INITIAL_GOALS: Goal[] = [
   { month: 'Mai/2027', target: 30000, actual: null },
 ]
 
-function makeId() {
-  return `tx-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`
-}
+// Dados reais da planilha mais recente (Agosto/2026)
+const INITIAL_TRANSACTIONS: Transaction[] = [
+  // ENTRADAS
+  { id: 'init-1', type: 'income', category: 'Salário FGL Brasil', amount: 1500, description: 'Salário FGL Brasil - Ago/2026', date: '2026-08-01' },
+  { id: 'init-2', type: 'income', category: 'Outras receitas', amount: 272.75, description: 'Outras receitas - Ago/2026', date: '2026-08-01' },
+  // DESPESAS FIXAS
+  { id: 'init-3', type: 'expense', category: 'Internet VIVO', amount: 65.33, description: 'Internet VIVO', date: '2026-08-01' },
+  { id: 'init-4', type: 'expense', category: 'Combustível', amount: 184.39, description: 'Combustível', date: '2026-08-01' },
+  { id: 'init-5', type: 'expense', category: 'Cartão de Crédito', amount: 132.50, description: 'Cartão de Crédito', date: '2026-08-01' },
+  { id: 'init-6', type: 'expense', category: 'Corte Cabelo', amount: 65, description: 'Corte de Cabelo', date: '2026-08-01' },
+  { id: 'init-7', type: 'expense', category: 'Assinaturas', amount: 63, description: 'Assinaturas (IA, VPN, etc.)', date: '2026-08-01' },
+  // DESPESAS VARIÁVEIS
+  { id: 'init-8', type: 'expense', category: 'Lazer', amount: 196.79, description: 'Lazer', date: '2026-08-01' },
+  { id: 'init-9', type: 'expense', category: 'Presentes', amount: 58.90, description: 'Presentes', date: '2026-08-01' },
+  { id: 'init-10', type: 'expense', category: 'Imprevistos', amount: 8, description: 'Imprevistos', date: '2026-08-01' },
+  // INVESTIMENTOS
+  { id: 'init-11', type: 'investment', category: 'CDB / Reserva', amount: 540, description: 'Investimento - Salário (C6/XP)', date: '2026-08-01' },
+]
 
-function dateRange(days: number) {
+function daysBefore(n: number): string {
   const d = new Date()
-  d.setDate(d.getDate() - days)
+  d.setDate(d.getDate() - n)
   return d.toISOString().split('T')[0]
-}
-
-function saveLocal(state: { transactions: Transaction[]; balance: number; goals: Goal[] }) {
-  if (typeof window === 'undefined') return
-  try { localStorage.setItem('niggan-v2', JSON.stringify(state)) } catch {}
-}
-
-function recalcBalance(txs: Transaction[]): number {
-  return txs.reduce((sum, t) => sum + (t.type === 'income' ? t.amount : -t.amount), 0)
 }
 
 const useFinanceStore = create<FinanceState>()((set, get) => ({
   transactions: [],
-  balance: 0,
+  patrimony: INITIAL_PATRIMONY,
   goals: INITIAL_GOALS,
-  synced: false,
 
-  // ── Carregar do localStorage (fallback) ──────────────────────
-  loadFromStorage: () => {
+  load: () => {
     if (typeof window === 'undefined') return
     try {
-      const saved = localStorage.getItem('niggan-v2')
-      if (saved) {
-        const p = JSON.parse(saved)
+      const raw = localStorage.getItem('niggan-v3')
+      if (raw) {
+        const data = JSON.parse(raw)
         set({
-          transactions: p.transactions || [],
-          balance: p.balance || 0,
-          goals: p.goals || INITIAL_GOALS,
+          transactions: data.transactions ?? INITIAL_TRANSACTIONS,
+          patrimony: data.patrimony ?? INITIAL_PATRIMONY,
+          goals: data.goals ?? INITIAL_GOALS,
         })
+      } else {
+        // Primeira vez: carrega com dados da planilha
+        set({ transactions: INITIAL_TRANSACTIONS, patrimony: INITIAL_PATRIMONY, goals: INITIAL_GOALS })
+        get().save({ transactions: INITIAL_TRANSACTIONS, patrimony: INITIAL_PATRIMONY, goals: INITIAL_GOALS })
       }
-    } catch {}
+    } catch (e) {
+      set({ transactions: INITIAL_TRANSACTIONS, patrimony: INITIAL_PATRIMONY, goals: INITIAL_GOALS })
+    }
   },
 
-  // ── Carregar do Supabase (fonte principal) ───────────────────
-  loadFromSupabase: async () => {
-    const [txs, goals, balanceRow] = await Promise.all([
-      fetchTransactions(),
-      fetchGoals(),
-      fetchBalance(),
-    ])
-    if (txs.length === 0 && goals.length === 0) return // Supabase vazio ou não configurado
-
-    const balance = balanceRow !== null ? balanceRow : recalcBalance(txs)
-    const mergedGoals = INITIAL_GOALS.map(g => {
-      const found = goals.find(sg => sg.month === g.month)
-      return found ? { ...g, actual: found.actual } : g
-    })
-
-    set({ transactions: txs, balance, goals: mergedGoals, synced: true })
-    saveLocal({ transactions: txs, balance, goals: mergedGoals })
+  save: (data) => {
+    if (typeof window === 'undefined') return
+    try { localStorage.setItem('niggan-v3', JSON.stringify(data)) } catch {}
   },
 
-  // ── Adicionar transação ──────────────────────────────────────
-  addTransaction: async (tx) => {
-    const newTx: Transaction = { ...tx, id: makeId() }
+  addTransaction: (tx) => {
     set((state) => {
+      const newTx: Transaction = { ...tx, id: `tx-${Date.now()}-${Math.random().toString(36).substr(2, 5)}` }
       const newTxs = [newTx, ...state.transactions]
-      const newBal = state.balance + (tx.type === 'income' ? tx.amount : -tx.amount)
-      saveLocal({ transactions: newTxs, balance: newBal, goals: state.goals })
-      return { transactions: newTxs, balance: newBal }
+      const newState = { transactions: newTxs, patrimony: state.patrimony, goals: state.goals }
+      get().save(newState)
+      return { transactions: newTxs }
     })
-    // Persistir no Supabase em background
-    await insertTransaction(newTx)
-    await saveBalance(get().balance)
   },
 
-  // ── Remover transação ────────────────────────────────────────
-  removeTransaction: async (id) => {
-    const tx = get().transactions.find(t => t.id === id)
-    if (!tx) return
+  updateTransaction: (id, updates) => {
+    set((state) => {
+      const newTxs = state.transactions.map(t => t.id === id ? { ...t, ...updates } : t)
+      const newState = { transactions: newTxs, patrimony: state.patrimony, goals: state.goals }
+      get().save(newState)
+      return { transactions: newTxs }
+    })
+  },
+
+  removeTransaction: (id) => {
     set((state) => {
       const newTxs = state.transactions.filter(t => t.id !== id)
-      const newBal = state.balance - (tx.type === 'income' ? tx.amount : -tx.amount)
-      saveLocal({ transactions: newTxs, balance: newBal, goals: state.goals })
-      return { transactions: newTxs, balance: newBal }
-    })
-    await deleteTransaction(id)
-    await saveBalance(get().balance)
-  },
-
-  // ── TikTok Shop ──────────────────────────────────────────────
-  addTiktokIncome: async (amount) => {
-    await get().addTransaction({
-      type: 'income',
-      category: 'TikTok Shop',
-      amount,
-      description: 'Rendimento semanal TikTok Shop',
-      date: new Date().toISOString().split('T')[0],
-      processed: true,
+      const newState = { transactions: newTxs, patrimony: state.patrimony, goals: state.goals }
+      get().save(newState)
+      return { transactions: newTxs }
     })
   },
 
-  // ── Atualizar meta ───────────────────────────────────────────
-  updateGoal: async (month, actual) => {
+  updatePatrimony: (account, balance) => {
+    set((state) => {
+      const newPat = state.patrimony.map(p => p.account === account ? { ...p, balance } : p)
+      const newState = { transactions: state.transactions, patrimony: newPat, goals: state.goals }
+      get().save(newState)
+      return { patrimony: newPat }
+    })
+  },
+
+  updateGoal: (month, actual) => {
     set((state) => {
       const newGoals = state.goals.map(g => g.month === month ? { ...g, actual } : g)
-      saveLocal({ transactions: state.transactions, balance: state.balance, goals: newGoals })
+      const newState = { transactions: state.transactions, patrimony: state.patrimony, goals: newGoals }
+      get().save(newState)
       return { goals: newGoals }
     })
-    await upsertGoal(month, actual)
   },
 
-  // ── Computed: Hoje ───────────────────────────────────────────
+  getBalance: () => {
+    return get().transactions.reduce((sum, t) => {
+      if (t.type === 'income') return sum + t.amount
+      return sum - t.amount
+    }, 0)
+  },
+
+  getTotalPatrimony: () => get().patrimony.reduce((s, p) => s + p.balance, 0),
+
   getToday: () => {
     const today = new Date().toISOString().split('T')[0]
     const txs = get().transactions.filter(t => t.date === today)
     return {
       income: txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
       expense: txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
+      investment: txs.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0),
       transactions: txs,
     }
   },
 
-  // ── Computed: 7 Dias ─────────────────────────────────────────
   getLast7Days: () => {
-    const start = dateRange(7)
+    const start = daysBefore(7)
     const txs = get().transactions.filter(t => t.date >= start)
     return {
       income: txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
@@ -194,42 +201,37 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
     }
   },
 
-  // ── Computed: Este Mês ───────────────────────────────────────
   getThisMonth: () => {
     const now = new Date()
     const txs = get().transactions.filter(t => {
-      const d = new Date(t.date)
+      const d = new Date(t.date + 'T12:00:00')
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
     })
     return {
       income: txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
       expense: txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
+      investment: txs.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0),
       transactions: txs,
     }
   },
 
-  // ── Computed: Por Categoria ──────────────────────────────────
   getByCategory: (days = 30) => {
-    const start = dateRange(days)
+    const start = daysBefore(days)
     const txs = get().transactions.filter(t => t.type === 'expense' && t.date >= start)
     const result: Record<string, number> = {}
     txs.forEach(t => { result[t.category] = (result[t.category] || 0) + t.amount })
     return result
   },
 
-  // ── Computed: Insights ───────────────────────────────────────
   getInsights: () => {
-    const expenses7 = get().transactions.filter(t => t.type === 'expense' && t.date >= dateRange(7))
+    const { transactions: last7 } = get().getLast7Days()
+    const expenses = last7.filter(t => t.type === 'expense')
     const byCategory = get().getByCategory(7)
-    const biggestExpense = expenses7.length > 0
-      ? expenses7.reduce((max, t) => t.amount > max.amount ? t : max, expenses7[0])
-      : null
-    const mostSpentCategory = Object.entries(byCategory).length > 0
-      ? Object.entries(byCategory).sort(([, a], [, b]) => b - a)[0][0]
-      : '-'
-    const totalExpense7 = expenses7.reduce((s, t) => s + t.amount, 0)
-    const dailyAverage = totalExpense7 / 7
-    return { biggestExpense, mostSpentCategory, dailyAverage, projectedMonthly: dailyAverage * 30 }
+    const total7 = expenses.reduce((s, t) => s + t.amount, 0)
+    const dailyAverage = total7 / 7
+    const mostSpentCategory = Object.entries(byCategory).sort(([,a],[,b]) => b - a)[0]?.[0] ?? '-'
+    const biggestExpense = expenses.length > 0 ? expenses.reduce((m, t) => t.amount > m.amount ? t : m, expenses[0]) : null
+    return { dailyAverage, projectedMonthly: dailyAverage * 30, mostSpentCategory, biggestExpense }
   },
 }))
 

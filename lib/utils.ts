@@ -1,13 +1,15 @@
 export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0)
 }
 
 export function formatDate(date: string): string {
-  return new Date(date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
-}
-
-export function getDayOfWeek(): number {
-  return new Date().getDay()
+  const d = new Date(date + 'T12:00:00')
+  const today = new Date()
+  const yesterday = new Date()
+  yesterday.setDate(today.getDate() - 1)
+  if (date === today.toISOString().split('T')[0]) return 'Hoje'
+  if (date === yesterday.toISOString().split('T')[0]) return 'Ontem'
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
 }
 
 export function isWednesday(): boolean {
@@ -15,9 +17,11 @@ export function isWednesday(): boolean {
 }
 
 export function getProgressPercent(current: number, target: number): number {
-  if (target === 0) return 0
+  if (!target) return 0
   return Math.min(100, Math.round((current / target) * 100))
 }
+
+export const FINAL_GOAL = 30000
 
 export const INCOME_CATEGORIES = [
   'Salário FGL Brasil',
@@ -36,8 +40,15 @@ export const EXPENSE_CATEGORIES = [
   'Lazer',
   'Presentes',
   'Alimentação',
-  'Saúde',
+  'Compras pessoais',
+  'Equipamentos / Trabalho',
+  'Imprevistos',
   'Outras despesas',
+]
+
+export const INVESTMENT_CATEGORIES = [
+  'CDB / Reserva',
+  'Aporte extra',
 ]
 
 export const CATEGORY_EMOJI: Record<string, string> = {
@@ -54,9 +65,10 @@ export const CATEGORY_EMOJI: Record<string, string> = {
   'Lazer': '🎮',
   'Presentes': '🎁',
   'Alimentação': '🍔',
-  'Saúde': '⚕️',
+  'Compras pessoais': '🛍️',
+  'Equipamentos / Trabalho': '🛠️',
+  'Imprevistos': '⚡',
   'Outras despesas': '📦',
+  'CDB / Reserva': '📈',
+  'Aporte extra': '💎',
 }
-
-export const FINAL_GOAL = 30000
-export const GOAL_DATE = 'Mai/2027'

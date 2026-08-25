@@ -8,14 +8,18 @@ export default function Settings() {
   const [editGoal, setEditGoal] = useState<string | null>(null)
   const [goalValue, setGoalValue] = useState('')
   const transactions = useFinanceStore(s => s.transactions)
-  const balance = useFinanceStore(s => s.balance)
   const goals = useFinanceStore(s => s.goals)
   const updateGoal = useFinanceStore(s => s.updateGoal)
+  const getBalance = useFinanceStore(s => s.getBalance)
+  const getTotalPatrimony = useFinanceStore(s => s.getTotalPatrimony)
+
+  const balance = getBalance()
+  const patrimony = getTotalPatrimony()
 
   const handleExport = () => {
-    const data = { transactions, balance, goals, exportDate: new Date().toISOString() }
+    const raw = localStorage.getItem('niggan-v3')
     const el = document.createElement('a')
-    el.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(JSON.stringify(data, null, 2)))
+    el.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(raw || '{}'))
     el.setAttribute('download', `niggan-backup-${new Date().toISOString().split('T')[0]}.json`)
     document.body.appendChild(el)
     el.click()
@@ -23,7 +27,7 @@ export default function Settings() {
   }
 
   const handleClear = () => {
-    localStorage.removeItem('niggan-v2')
+    localStorage.removeItem('niggan-v3')
     localStorage.removeItem('lastTiktok')
     window.location.href = '/'
   }
@@ -39,7 +43,7 @@ export default function Settings() {
     <div className="min-h-screen bg-neutral-50">
       <header className="sticky top-0 bg-white border-b border-neutral-100 z-40">
         <div className="px-4 py-3 flex items-center gap-3">
-          <Link href="/" className="text-2xl">←</Link>
+          <Link href="/" className="text-xl text-neutral-600">←</Link>
           <h1 className="text-xl font-bold text-olive-900">Configurações</h1>
         </div>
       </header>
@@ -47,55 +51,51 @@ export default function Settings() {
       <main className="px-4 py-4 space-y-4 pb-10">
         {/* Resumo */}
         <div className="bg-white rounded-xl p-4 border border-neutral-100">
-          <p className="text-xs font-bold text-neutral-500 uppercase mb-3">Resumo</p>
+          <p className="text-xs font-bold text-neutral-500 uppercase mb-3">Resumo Financeiro</p>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-neutral-600">Saldo atual</span>
+              <span className="text-neutral-600">Saldo calculado</span>
               <span className="font-bold text-olive-900">{formatCurrency(balance)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-neutral-600">Transações</span>
+              <span className="text-neutral-600">Patrimônio total</span>
+              <span className="font-bold text-yellow-600">{formatCurrency(patrimony)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-neutral-600">Total transações</span>
               <span className="font-bold">{transactions.length}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-neutral-600">Meta final</span>
+              <span className="text-neutral-600">Meta</span>
               <span className="font-bold">{formatCurrency(FINAL_GOAL)} até Mai/2027</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-neutral-600">Progresso</span>
-              <span className="font-bold text-olive-700">{Math.round((balance / FINAL_GOAL) * 100)}%</span>
+              <span className="text-neutral-600">Progresso meta</span>
+              <span className="font-bold text-olive-700">{Math.round((patrimony / FINAL_GOAL) * 100)}%</span>
             </div>
           </div>
         </div>
 
-        {/* Evolução de Patrimônio */}
+        {/* Evolução Patrimonial */}
         <div className="bg-white rounded-xl border border-neutral-100 overflow-hidden">
           <div className="px-4 py-3 border-b border-neutral-100">
             <p className="text-xs font-bold text-neutral-500 uppercase">Evolução Patrimonial</p>
-            <p className="text-xs text-neutral-400 mt-0.5">Toque para registrar o patrimônio do mês</p>
+            <p className="text-xs text-neutral-400 mt-0.5">Toque para registrar o patrimônio real do mês</p>
           </div>
           {goals.map(goal => (
             <div key={goal.month} className="border-b border-neutral-50 last:border-0">
               {editGoal === goal.month ? (
                 <div className="px-4 py-3 flex gap-2 items-center">
-                  <p className="text-sm font-medium w-20 flex-shrink-0">{goal.month}</p>
-                  <input
-                    type="number"
-                    value={goalValue}
-                    onChange={e => setGoalValue(e.target.value)}
-                    placeholder="Patrimônio"
-                    className="flex-1 px-3 py-2 bg-neutral-100 rounded-lg text-sm"
-                    autoFocus
-                    inputMode="decimal"
-                  />
-                  <button onClick={() => handleSaveGoal(goal.month)} className="text-olive-700 font-bold text-sm">OK</button>
+                  <p className="text-sm font-medium w-20">{goal.month}</p>
+                  <input type="number" value={goalValue} onChange={e => setGoalValue(e.target.value)}
+                    placeholder="Patrimônio" inputMode="decimal" autoFocus
+                    className="flex-1 px-3 py-2 bg-neutral-100 rounded-lg text-sm" />
+                  <button onClick={() => handleSaveGoal(goal.month)} className="text-olive-700 font-bold text-sm px-1">OK</button>
                   <button onClick={() => setEditGoal(null)} className="text-neutral-400 text-sm">✕</button>
                 </div>
               ) : (
-                <div
-                  onClick={() => { setEditGoal(goal.month); setGoalValue(goal.actual?.toString() || '') }}
-                  className="px-4 py-3 flex items-center justify-between cursor-pointer active:bg-neutral-50"
-                >
+                <div onClick={() => { setEditGoal(goal.month); setGoalValue(goal.actual?.toString() || '') }}
+                  className="px-4 py-3 flex items-center justify-between cursor-pointer active:bg-neutral-50">
                   <div>
                     <p className="text-sm font-medium">{goal.month}</p>
                     <p className="text-xs text-neutral-400">Meta: {formatCurrency(goal.target)}</p>
@@ -109,7 +109,7 @@ export default function Settings() {
                         </p>
                       </>
                     ) : (
-                      <p className="text-xs text-neutral-300">Toque para registrar</p>
+                      <p className="text-xs text-neutral-300">✏️ Registrar</p>
                     )}
                   </div>
                 </div>
@@ -140,25 +140,19 @@ export default function Settings() {
 
           {showClear && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-              <p className="text-sm text-red-900 mb-3 font-medium">Tem certeza? Isso não pode ser desfeito!</p>
+              <p className="text-sm text-red-900 mb-3 font-medium">⚠️ Isso não pode ser desfeito!</p>
               <div className="flex gap-2">
                 <button onClick={() => setShowClear(false)}
-                  className="flex-1 bg-white border border-red-200 text-red-700 py-2.5 rounded-lg font-medium text-sm">
-                  Cancelar
-                </button>
+                  className="flex-1 bg-white border border-red-200 text-red-700 py-2.5 rounded-lg font-medium text-sm">Cancelar</button>
                 <button onClick={handleClear}
-                  className="flex-1 bg-red-600 text-white py-2.5 rounded-lg font-bold text-sm">
-                  Deletar Tudo
-                </button>
+                  className="flex-1 bg-red-600 text-white py-2.5 rounded-lg font-bold text-sm">Deletar Tudo</button>
               </div>
             </div>
           )}
         </div>
 
-        {/* Info */}
-        <div className="text-center py-4">
-          <p className="text-xs text-neutral-400">Niggan Finances v2.0</p>
-          <p className="text-xs text-neutral-300">Desenvolvido para Felipe 🚀</p>
+        <div className="text-center py-2">
+          <p className="text-xs text-neutral-400">Niggan Finances v2.0 · Desenvolvido para Felipe 🚀</p>
         </div>
       </main>
     </div>
