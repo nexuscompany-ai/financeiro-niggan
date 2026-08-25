@@ -27,18 +27,21 @@ export default async function handler(
   }
 
   try {
-    // Chamada à API Anthropic (Mia)
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    // Chamada à API OpenAI (ChatGPT) - Mia
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 1024,
-        system: `Você é Mia, uma assistente financeira inteligente. Seu trabalho é analisar mensagens do usuário Felipe sobre transações financeiras e extrair informações estruturadas.
+        model: 'gpt-4o-mini',
+        temperature: 0.7,
+        max_tokens: 500,
+        messages: [
+          {
+            role: 'system',
+            content: `Você é Mia, uma assistente financeira inteligente. Seu trabalho é analisar mensagens do usuário Felipe sobre transações financeiras e extrair informações estruturadas.
 
 Categorias de renda: ${CATEGORIES.income.join(', ')}
 Categorias de despesa: ${CATEGORIES.expense.join(', ')}
@@ -49,9 +52,9 @@ Quando o usuário escrever algo como:
 - "pagamento de 1500" → income, 1500, Salário (padrão)
 - "gastei no transporte" → expense, amount (do contexto), Transporte
 
-Responda APENAS em JSON válido com este formato:
+Responda APENAS em JSON válido com este formato (SEM markdown, SEM aspas extras):
 {
-  "type": "income" | "expense",
+  "type": "income" ou "expense",
   "amount": número,
   "category": string,
   "description": "descrição completa",
@@ -62,8 +65,10 @@ Se não conseguir extrair uma transação válida, responda:
 {
   "type": null,
   "error": "descrição do problema"
-}`,
-        messages: [
+}
+
+IMPORTANTE: Retorne APENAS o JSON, sem explicações ou markdown!`,
+          },
           {
             role: 'user',
             content: message,
@@ -73,18 +78,30 @@ Se não conseguir extrair uma transação válida, responda:
     })
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.statusText}`)
+      const error = await response.json()
+      throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`)
     }
 
     const data = await response.json()
-    const content = data.content[0]?.text
+    const content = data.choices[0]?.message?.content
 
     if (!content) {
       return res.status(500).json({ success: false, error: 'No response from AI' })
     }
 
     // Parse resposta JSON da IA
-    const transaction = JSON.parse(content)
+    let transaction
+    try {
+      // Remover markdown se existir
+      const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim()
+      transaction = JSON.parse(cleanContent)
+    } catch (parseError) {
+      console.error('JSON parse error:', content)
+      return res.status(400).json({
+        success: false,
+        error: 'Could not parse AI response',
+      })
+    }
 
     if (!transaction.type) {
       return res.status(400).json({
