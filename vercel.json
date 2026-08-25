@@ -1,0 +1,14 @@
+{
+  "buildCommand": "next build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "env": {
+    "NEXT_PUBLIC_ANTHROPIC_API_KEY": "@anthropic_api_key"
+  },
+  "regions": ["sao1"],
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  }
+}
