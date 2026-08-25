@@ -1,8 +1,20 @@
 import '@/styles/globals.css'
 import type { AppProps } from 'next/app'
 import Head from 'next/head'
+import { useEffect } from 'react'
+import useFinanceStore from '@/lib/store'
 
-export default function App({ Component, pageProps }: AppProps) {
+function AppContent({ Component, pageProps }: AppProps) {
+  const loadFromStorage = useFinanceStore((state) => state.loadFromStorage)
+
+  useEffect(() => {
+    loadFromStorage()
+  }, [])
+
+  return <Component {...pageProps} />
+}
+
+export default function App(props: AppProps) {
   return (
     <>
       <Head>
@@ -12,10 +24,10 @@ export default function App({ Component, pageProps }: AppProps) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Niggan" />
-        <meta name="description" content="App de finanças pessoais com IA - 100% Mobile" />
+        <meta name="description" content="App de finanças pessoais - 100% Mobile" />
         <title>Niggan Finances</title>
       </Head>
-      <Component {...pageProps} />
+      <AppContent {...props} />
     </>
   )
 }
