@@ -1,8 +1,5 @@
 {
   "buildCommand": "next build",
   "outputDirectory": ".next",
-  "framework": "nextjs",
-  "env": {
-    "OPENAI_API_KEY": "@openai_api_key"
-  }
+  "framework": "nextjs"
 }

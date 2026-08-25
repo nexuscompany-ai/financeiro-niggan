@@ -5,94 +5,127 @@ interface TransactionInputProps {
   onSubmit?: () => void
 }
 
+const CATEGORIES = {
+  income: ['Salário', 'TikTok Shop', 'Contratos', 'Freelancer', 'Outros'],
+  expense: ['Alimentação', 'Transporte', 'Moradia', 'Saúde', 'Lazer', 'Educação', 'Outros'],
+}
+
 export default function TransactionInput({ onSubmit }: TransactionInputProps) {
-  const [message, setMessage] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [type, setType] = useState<'income' | 'expense'>('expense')
+  const [category, setCategory] = useState(CATEGORIES.expense[0])
+  const [amount, setAmount] = useState('')
+  const [description, setDescription] = useState('')
   const [error, setError] = useState('')
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const addTransaction = useFinanceStore((state) => state.addTransaction)
 
-  const handleAutoResize = () => {
-    const textarea = textareaRef.current
-    if (textarea) {
-      textarea.style.height = 'auto'
-      textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px'
-    }
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!message.trim()) {
-      setError('Escreva algo para Mia processar')
+    if (!amount.trim() || parseFloat(amount) <= 0) {
+      setError('Digite um valor válido')
       return
     }
 
-    setLoading(true)
-    setError('')
+    if (!description.trim()) {
+      setError('Digite uma descrição')
+      return
+    }
 
     try {
-      const response = await fetch('/api/mia', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message }),
-      })
-
-      const data = await response.json()
-
-      if (!data.success || !data.transaction) {
-        setError(data.error || 'Não consegui processar isso. Tente de novo.')
-        return
-      }
-
-      const { type, amount, category, description, date } = data.transaction
-
       addTransaction({
         type,
         amount: parseFloat(amount),
         category,
         description,
-        date,
+        date: new Date().toISOString().split('T')[0],
         processed: true,
       })
 
-      setMessage('')
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto'
-      }
+      // Limpar formulário
+      setAmount('')
+      setDescription('')
+      setError('')
+      setType('expense')
+      setCategory(CATEGORIES.expense[0])
       
       onSubmit?.()
     } catch (err) {
-      setError('Erro ao conectar com Mia. Tente novamente.')
+      setError('Erro ao adicionar transação')
       console.error(err)
-    } finally {
-      setLoading(false)
     }
   }
+
+  const categoriesForType = type === 'income' ? CATEGORIES.income : CATEGORIES.expense
 
   return (
     <div className="w-full px-4 pb-safe">
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="relative">
-          <textarea
-            ref={textareaRef}
-            value={message}
-            onChange={(e) => {
-              setMessage(e.target.value)
-              handleAutoResize()
+        {/* Tipo de Transação */}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setType('expense')
+              setCategory(CATEGORIES.expense[0])
             }}
-            placeholder="Escreve pra Mia: 'gastei 50 em comida' ou 'recebi 100 de freelancer'"
-            className="w-full px-4 py-3 bg-neutral-100 rounded-xl focus:bg-white border-2 border-transparent focus:border-olive-500 resize-none overflow-hidden font-base placeholder-neutral-400 transition-all"
-            rows={1}
-            maxLength={500}
-            disabled={loading}
-          />
-          <div className="absolute right-3 bottom-2 text-xs text-neutral-400">
-            {message.length}/500
-          </div>
+            className={`flex-1 py-2 rounded-lg font-medium transition-all ${
+              type === 'expense'
+                ? 'bg-red-600 text-white'
+                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+            }`}
+          >
+            ❌ Saída
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setType('income')
+              setCategory(CATEGORIES.income[0])
+            }}
+            className={`flex-1 py-2 rounded-lg font-medium transition-all ${
+              type === 'income'
+                ? 'bg-green-600 text-white'
+                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+            }`}
+          >
+            💚 Entrada
+          </button>
         </div>
+
+        {/* Valor */}
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="Valor"
+          className="w-full px-4 py-3 bg-neutral-100 rounded-xl focus:bg-white border-2 border-transparent focus:border-olive-500 font-bold text-lg transition-all"
+          inputMode="decimal"
+        />
+
+        {/* Categoria */}
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="w-full px-4 py-3 bg-neutral-100 rounded-xl focus:bg-white border-2 border-transparent focus:border-olive-500 transition-all cursor-pointer"
+        >
+          {categoriesForType.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
+
+        {/* Descrição */}
+        <input
+          type="text"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Descrição (ex: Almoço)"
+          className="w-full px-4 py-3 bg-neutral-100 rounded-xl focus:bg-white border-2 border-transparent focus:border-olive-500 transition-all"
+          maxLength={100}
+        />
 
         {error && (
           <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 animate-fade-in">
@@ -102,19 +135,9 @@ export default function TransactionInput({ onSubmit }: TransactionInputProps) {
 
         <button
           type="submit"
-          disabled={loading || !message.trim()}
-          className="w-full bg-olive-700 text-white py-3 px-4 rounded-xl font-medium hover:bg-olive-800 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+          className="w-full bg-olive-700 text-white py-3 px-4 rounded-xl font-medium hover:bg-olive-800 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-all"
         >
-          {loading ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Processando...
-            </>
-          ) : (
-            <>
-              <span>💬 Enviar para Mia</span>
-            </>
-          )}
+          ✅ Adicionar
         </button>
       </form>
     </div>
