@@ -3,68 +3,81 @@ import Link from 'next/link'
 import useFinanceStore from '@/lib/store'
 import { formatCurrency, CATEGORY_EMOJI } from '@/lib/utils'
 
-type Period = '7d'|'30d'|'90d'|'all'
-const PERIOD_LABELS: Record<Period,string> = { '7d':'7 dias','30d':'Este mês','90d':'90 dias','all':'Tudo' }
+type Period = 'month' | '7d' | '90d' | 'all'
+const PERIOD_LABELS: Record<Period, string> = {
+  'month': 'Este mês',
+  '7d': '7 dias',
+  '90d': '90 dias',
+  'all': 'Histórico',
+}
 
 const COFRES = [
-  { key: 'Salário FGL Brasil', emoji: '💼', color: { bg:'bg-blue-50',border:'border-blue-200',text:'text-blue-800',bar:'bg-blue-500',badge:'bg-blue-100 text-blue-700' } },
-  { key: 'Contratos / Instalações', emoji: '🔧', color: { bg:'bg-orange-50',border:'border-orange-200',text:'text-orange-800',bar:'bg-orange-500',badge:'bg-orange-100 text-orange-700' } },
-  { key: 'TikTok Shop', emoji: '🎵', color: { bg:'bg-pink-50',border:'border-pink-200',text:'text-pink-800',bar:'bg-pink-500',badge:'bg-pink-100 text-pink-700' } },
-  { key: 'Outras receitas', emoji: '💰', color: { bg:'bg-purple-50',border:'border-purple-200',text:'text-purple-800',bar:'bg-purple-500',badge:'bg-purple-100 text-purple-700' } },
-  { key: 'Entrada', emoji: '💵', color: { bg:'bg-green-50',border:'border-green-200',text:'text-green-800',bar:'bg-green-500',badge:'bg-green-100 text-green-700' } },
+  { key: 'Salário FGL Brasil', emoji: '💼', color: { bg:'bg-blue-50', border:'border-blue-200', text:'text-blue-800', bar:'bg-blue-500' } },
+  { key: 'Contratos / Instalações', emoji: '🔧', color: { bg:'bg-orange-50', border:'border-orange-200', text:'text-orange-800', bar:'bg-orange-500' } },
+  { key: 'TikTok Shop', emoji: '🎵', color: { bg:'bg-pink-50', border:'border-pink-200', text:'text-pink-800', bar:'bg-pink-500' } },
+  { key: 'Outras receitas', emoji: '💰', color: { bg:'bg-purple-50', border:'border-purple-200', text:'text-purple-800', bar:'bg-purple-500' } },
+  { key: 'Entrada', emoji: '💵', color: { bg:'bg-green-50', border:'border-green-200', text:'text-green-800', bar:'bg-green-500' } },
 ]
 
-const SPECIFIC_CATS = ['Salário FGL Brasil','Contratos / Instalações','TikTok Shop','Outras receitas']
+const SPECIFIC_CATS = ['Salário FGL Brasil', 'Contratos / Instalações', 'TikTok Shop', 'Outras receitas']
 
-function daysAgo(n: number) { const d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().split('T')[0] }
-function startOfMonth() { const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().split('T')[0] }
+function getStartDate(period: Period): string {
+  const now = new Date()
+  if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+  if (period === '7d') { const d = new Date(); d.setDate(d.getDate()-7); return d.toISOString().split('T')[0] }
+  if (period === '90d') { const d = new Date(); d.setDate(d.getDate()-90); return d.toISOString().split('T')[0] }
+  return '2000-01-01' // all
+}
 
 export default function Cofres() {
   const transactions = useFinanceStore(s => s.transactions)
   const [hidden, setHidden] = useState(false)
-  const [expanded, setExpanded] = useState<string|null>(null)
-  const [periods, setPeriods] = useState<Record<string,Period>>({})
+  const [expanded, setExpanded] = useState<string | null>(null)
+  // Padrão: mês atual para todos os cofres
+  const [periods, setPeriods] = useState<Record<string, Period>>({})
 
-  const getPeriod = (k: string): Period => periods[k] || 'all'
-  const setPeriod = (k: string, p: Period) => setPeriods(prev => ({...prev,[k]:p}))
-
-  const filterByPeriod = (txs: typeof transactions, p: Period) => {
-    if (p==='7d') return txs.filter(t => t.date >= daysAgo(7))
-    if (p==='30d') return txs.filter(t => t.date >= startOfMonth())
-    if (p==='90d') return txs.filter(t => t.date >= daysAgo(90))
-    return txs
-  }
+  const getPeriod = (k: string): Period => periods[k] || 'month'
+  const setPeriod = (k: string, p: Period) => setPeriods(prev => ({ ...prev, [k]: p }))
 
   const fmt = (v: number) => hidden ? '••••' : formatCurrency(v)
+
+  // Total geral sempre do mês atual
+  const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+  const totalGeralMes = transactions
+    .filter(t => t.type === 'income' && t.date >= startOfMonth)
+    .reduce((s, t) => s + t.amount, 0)
 
   const cofresData = useMemo(() => {
     return COFRES.map(({ key, emoji, color }) => {
       const isEntrada = key === 'Entrada'
-
-      // Entradas desta categoria
-      const allIncomes = transactions.filter(t =>
-        t.type === 'income' && (isEntrada ? !SPECIFIC_CATS.includes(t.category) : t.category === key)
-      )
-      // Investimentos que vieram desta categoria
-      const allInvestments = transactions.filter(t =>
-        t.type === 'investment' && t.fromCategory === key
-      )
-
-      const totalIncomeAll = allIncomes.reduce((s,t)=>s+t.amount,0)
-      const totalInvestAll = allInvestments.reduce((s,t)=>s+t.amount,0)
-
       const period = getPeriod(key)
-      const incomes = filterByPeriod(allIncomes, period).sort((a,b)=>b.date.localeCompare(a.date))
-      const investments = filterByPeriod(allInvestments, period).sort((a,b)=>b.date.localeCompare(a.date))
+      const start = getStartDate(period)
 
-      const totalIncome = incomes.reduce((s,t)=>s+t.amount,0)
-      const totalInvest = investments.reduce((s,t)=>s+t.amount,0)
+      // Entradas desta categoria no período selecionado
+      const incomes = transactions.filter(t =>
+        t.type === 'income' &&
+        t.date >= start &&
+        (isEntrada ? !SPECIFIC_CATS.includes(t.category) : t.category === key)
+      ).sort((a, b) => b.date.localeCompare(a.date))
 
-      return { key, emoji, color, incomes, investments, totalIncome, totalInvest, totalIncomeAll, totalInvestAll }
+      // Investimentos que vieram desta categoria no período
+      const investments = transactions.filter(t =>
+        t.type === 'investment' &&
+        t.date >= start &&
+        t.fromCategory === key
+      ).sort((a, b) => b.date.localeCompare(a.date))
+
+      const totalIncome = incomes.reduce((s, t) => s + t.amount, 0)
+      const totalInvest = investments.reduce((s, t) => s + t.amount, 0)
+
+      // % do total do mês
+      const pct = totalGeralMes > 0 ? Math.min(100, Math.round((totalIncome / totalGeralMes) * 100)) : 0
+
+      return { key, emoji, color, incomes, investments, totalIncome, totalInvest, pct, period }
     })
   }, [transactions, periods])
 
-  const totalGeral = cofresData.reduce((s,c)=>s+c.totalIncomeAll,0)
+  const totalMesExibido = cofresData.reduce((s, c) => s + (getPeriod(c.key) === 'month' ? c.totalIncome : 0), 0)
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -74,10 +87,12 @@ export default function Cofres() {
             <Link href="/" className="text-xl text-neutral-500">←</Link>
             <div>
               <h1 className="text-xl font-bold text-olive-900">Cofres 🏦</h1>
-              <p className="text-xs text-neutral-400">Entradas por origem</p>
+              <p className="text-xs text-neutral-400">
+                {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+              </p>
             </div>
           </div>
-          <button onClick={() => setHidden(h=>!h)}
+          <button onClick={() => setHidden(h => !h)}
             className="w-9 h-9 bg-neutral-100 rounded-full flex items-center justify-center text-base active:bg-neutral-200">
             {hidden ? '👁️' : '🙈'}
           </button>
@@ -85,59 +100,63 @@ export default function Cofres() {
       </header>
 
       <main className="px-4 py-4 pb-12">
-        {/* Total geral */}
+        {/* Total do mês */}
         <div className="bg-gradient-to-br from-olive-800 to-olive-950 rounded-2xl p-5 text-white mb-4">
-          <p className="text-xs opacity-60 mb-1">Total em todos os cofres</p>
-          <p className="text-3xl font-bold">{hidden ? '••••••' : formatCurrency(totalGeral)}</p>
-          <p className="text-xs opacity-50 mt-2">{transactions.filter(t=>t.type==='income').length} entradas registradas</p>
+          <p className="text-xs opacity-60 mb-1">Total entrou este mês</p>
+          <p className="text-3xl font-bold">{hidden ? '••••••' : formatCurrency(totalGeralMes)}</p>
+          <p className="text-xs opacity-50 mt-2">
+            {transactions.filter(t => t.type === 'income' && t.date >= startOfMonth).length} entradas em{' '}
+            {new Date().toLocaleDateString('pt-BR', { month: 'long' })}
+          </p>
         </div>
 
         {/* Cofres */}
         <div className="space-y-3">
-          {cofresData.map(({ key, emoji, color, incomes, investments, totalIncome, totalInvest, totalIncomeAll, totalInvestAll }) => {
+          {cofresData.map(({ key, emoji, color, incomes, investments, totalIncome, totalInvest, pct, period }) => {
             const isOpen = expanded === key
-            const period = getPeriod(key)
-            const pct = totalIncomeAll > 0 ? Math.round((totalIncomeAll/totalGeral)*100) : 0
 
             return (
               <div key={key} className={`bg-white border-2 ${color.border} rounded-2xl overflow-hidden`}>
                 {/* Header */}
-                <div onClick={() => setExpanded(isOpen ? null : key)} className="p-4 cursor-pointer active:bg-neutral-50">
+                <div onClick={() => setExpanded(isOpen ? null : key)}
+                  className="p-4 cursor-pointer active:bg-neutral-50">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">{emoji}</span>
                       <div>
                         <p className={`text-sm font-bold ${color.text}`}>{key}</p>
                         <p className="text-xs text-neutral-400">
-                          {incomes.length} entrada{incomes.length!==1?'s':''} · {PERIOD_LABELS[period]}
+                          {incomes.length} entrada{incomes.length !== 1 ? 's' : ''} · {PERIOD_LABELS[period]}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-bold text-neutral-900">{fmt(totalIncomeAll)}</p>
-                      {totalInvestAll > 0 && (
-                        <p className="text-xs font-medium text-blue-600">📈 {fmt(totalInvestAll)} invest.</p>
+                      <p className="text-lg font-bold text-neutral-900">{fmt(totalIncome)}</p>
+                      {totalInvest > 0 && (
+                        <p className="text-xs font-medium text-blue-600">📈 {fmt(totalInvest)} invest.</p>
                       )}
                     </div>
                   </div>
-                  {/* Barra */}
+
+                  {/* Barra proporcional ao mês */}
                   <div className="w-full bg-neutral-100 rounded-full h-1.5">
-                    <div className={`${color.bar} h-1.5 rounded-full`} style={{width:`${pct}%`}} />
+                    <div className={`${color.bar} h-1.5 rounded-full transition-all`} style={{ width: `${pct}%` }} />
                   </div>
                   <div className="flex justify-between mt-1">
-                    <p className="text-xs text-neutral-400">{pct}% do total geral</p>
-                    <p className="text-xs text-neutral-400">{isOpen ? '▲ fechar' : '▼ ver detalhes'}</p>
+                    <p className="text-xs text-neutral-400">{pct}% do total do mês</p>
+                    <p className="text-xs text-neutral-400">{isOpen ? '▲ fechar' : '▼ detalhes'}</p>
                   </div>
                 </div>
 
                 {/* Expandido */}
                 {isOpen && (
                   <div className="border-t border-neutral-100">
-                    {/* Filtros */}
-                    <div className="px-4 pt-3 pb-2 flex gap-2 overflow-x-auto" style={{scrollbarWidth:'none'}}>
-                      {(Object.entries(PERIOD_LABELS) as [Period,string][]).map(([p,label]) => (
-                        <button key={p} onClick={e=>{e.stopPropagation();setPeriod(key,p)}}
-                          className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${period===p ? `${color.bar} text-white` : 'bg-neutral-100 text-neutral-500'}`}>
+                    {/* Filtros de período */}
+                    <div className="px-4 pt-3 pb-2 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+                      {(Object.entries(PERIOD_LABELS) as [Period, string][]).map(([p, label]) => (
+                        <button key={p}
+                          onClick={e => { e.stopPropagation(); setPeriod(key, p) }}
+                          className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${period === p ? `${color.bar} text-white` : 'bg-neutral-100 text-neutral-500'}`}>
                           {label}
                         </button>
                       ))}
@@ -153,20 +172,20 @@ export default function Cofres() {
                               <div className="flex-1 min-w-0 mr-3">
                                 <p className="text-sm font-medium text-neutral-800 truncate">{tx.description}</p>
                                 <p className="text-xs text-neutral-400">
-                                  {new Date(tx.date+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'2-digit'})}
+                                  {new Date(tx.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                                 </p>
                               </div>
                               <p className={`text-sm font-bold flex-shrink-0 ${color.text}`}>+{fmt(tx.amount)}</p>
                             </div>
                           ))}
                           <div className="flex justify-between pt-1 border-t border-neutral-100">
-                            <p className="text-xs font-bold text-neutral-500">Subtotal entradas</p>
+                            <p className="text-xs font-bold text-neutral-500">Subtotal</p>
                             <p className={`text-sm font-bold ${color.text}`}>{fmt(totalIncome)}</p>
                           </div>
                         </>
                       )}
 
-                      {/* Investimentos deste cofre */}
+                      {/* Investimentos */}
                       {investments.length > 0 && (
                         <>
                           <p className="text-xs font-bold text-blue-500 uppercase mt-2">📈 Investimentos deste cofre</p>
@@ -175,10 +194,10 @@ export default function Cofres() {
                               <div className="flex-1 min-w-0 mr-3">
                                 <p className="text-sm font-medium text-blue-800 truncate">{tx.description}</p>
                                 <p className="text-xs text-blue-400">
-                                  {tx.category} · {new Date(tx.date+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'2-digit'})}
+                                  {tx.category} · {new Date(tx.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                                 </p>
                               </div>
-                              <p className="text-sm font-bold flex-shrink-0 text-blue-700">📈 {fmt(tx.amount)}</p>
+                              <p className="text-sm font-bold text-blue-700">📈 {fmt(tx.amount)}</p>
                             </div>
                           ))}
                           <div className="flex justify-between pt-1 border-t border-blue-100">
@@ -191,7 +210,7 @@ export default function Cofres() {
                       {incomes.length === 0 && investments.length === 0 && (
                         <div className="py-6 text-center">
                           <p className="text-2xl mb-1">📭</p>
-                          <p className="text-xs text-neutral-400">Nenhuma movimentação neste período</p>
+                          <p className="text-xs text-neutral-400">Nenhuma movimentação {PERIOD_LABELS[period].toLowerCase()}</p>
                         </div>
                       )}
                     </div>
