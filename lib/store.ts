@@ -1,4 +1,9 @@
 import { create } from 'zustand'
+import {
+  fetchTransactions, insertTransaction, deleteTransaction,
+  fetchGoals, upsertGoal,
+  fetchBalance, saveBalance,
+} from './db'
 
 export type TransactionType = 'income' | 'expense'
 
@@ -13,8 +18,8 @@ export interface Transaction {
 }
 
 export interface Goal {
-  month: string        // "Ago/2026"
-  target: number       // R$ 3.000
+  month: string
+  target: number
   actual: number | null
 }
 
@@ -22,18 +27,16 @@ export interface FinanceState {
   transactions: Transaction[]
   balance: number
   goals: Goal[]
+  synced: boolean   // true = dados vêm do Supabase
 
-  // Actions
-  addTransaction: (tx: Omit<Transaction, 'id'>) => void
-  removeTransaction: (id: string) => void
-  addTiktokIncome: (amount: number) => void
-  updateGoal: (month: string, actual: number) => void
+  addTransaction: (tx: Omit<Transaction, 'id'>) => Promise<void>
+  removeTransaction: (id: string) => Promise<void>
+  addTiktokIncome: (amount: number) => Promise<void>
+  updateGoal: (month: string, actual: number) => Promise<void>
 
-  // Storage
   loadFromStorage: () => void
-  saveToStorage: (data: any) => void
+  loadFromSupabase: () => Promise<void>
 
-  // Computed
   getToday: () => { income: number; expense: number; transactions: Transaction[] }
   getLast7Days: () => { income: number; expense: number; transactions: Transaction[] }
   getThisMonth: () => { income: number; expense: number; transactions: Transaction[] }
@@ -59,64 +62,97 @@ const INITIAL_GOALS: Goal[] = [
   { month: 'Mai/2027', target: 30000, actual: null },
 ]
 
-function getDateRange(days: number) {
-  const end = new Date()
-  const start = new Date()
-  start.setDate(start.getDate() - days)
-  return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] }
+function makeId() {
+  return `tx-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`
+}
+
+function dateRange(days: number) {
+  const d = new Date()
+  d.setDate(d.getDate() - days)
+  return d.toISOString().split('T')[0]
+}
+
+function saveLocal(state: { transactions: Transaction[]; balance: number; goals: Goal[] }) {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem('niggan-v2', JSON.stringify(state)) } catch {}
+}
+
+function recalcBalance(txs: Transaction[]): number {
+  return txs.reduce((sum, t) => sum + (t.type === 'income' ? t.amount : -t.amount), 0)
 }
 
 const useFinanceStore = create<FinanceState>()((set, get) => ({
   transactions: [],
   balance: 0,
   goals: INITIAL_GOALS,
+  synced: false,
 
+  // ── Carregar do localStorage (fallback) ──────────────────────
   loadFromStorage: () => {
     if (typeof window === 'undefined') return
     try {
       const saved = localStorage.getItem('niggan-v2')
       if (saved) {
-        const parsed = JSON.parse(saved)
+        const p = JSON.parse(saved)
         set({
-          transactions: parsed.transactions || [],
-          balance: parsed.balance || 0,
-          goals: parsed.goals || INITIAL_GOALS,
+          transactions: p.transactions || [],
+          balance: p.balance || 0,
+          goals: p.goals || INITIAL_GOALS,
         })
       }
-    } catch (e) { console.error(e) }
+    } catch {}
   },
 
-  saveToStorage: (data) => {
-    if (typeof window === 'undefined') return
-    try { localStorage.setItem('niggan-v2', JSON.stringify(data)) }
-    catch (e) { console.error(e) }
-  },
+  // ── Carregar do Supabase (fonte principal) ───────────────────
+  loadFromSupabase: async () => {
+    const [txs, goals, balanceRow] = await Promise.all([
+      fetchTransactions(),
+      fetchGoals(),
+      fetchBalance(),
+    ])
+    if (txs.length === 0 && goals.length === 0) return // Supabase vazio ou não configurado
 
-  addTransaction: (tx) => {
-    set((state) => {
-      const newTx: Transaction = { ...tx, id: `tx-${Date.now()}-${Math.random().toString(36).substr(2, 6)}` }
-      const newBalance = state.balance + (tx.type === 'income' ? tx.amount : -tx.amount)
-      const newTransactions = [newTx, ...state.transactions]
-      const newState = { transactions: newTransactions, balance: newBalance, goals: state.goals }
-      get().saveToStorage(newState)
-      return { transactions: newTransactions, balance: newBalance }
+    const balance = balanceRow !== null ? balanceRow : recalcBalance(txs)
+    const mergedGoals = INITIAL_GOALS.map(g => {
+      const found = goals.find(sg => sg.month === g.month)
+      return found ? { ...g, actual: found.actual } : g
     })
+
+    set({ transactions: txs, balance, goals: mergedGoals, synced: true })
+    saveLocal({ transactions: txs, balance, goals: mergedGoals })
   },
 
-  removeTransaction: (id) => {
+  // ── Adicionar transação ──────────────────────────────────────
+  addTransaction: async (tx) => {
+    const newTx: Transaction = { ...tx, id: makeId() }
     set((state) => {
-      const tx = state.transactions.find((t) => t.id === id)
-      if (!tx) return state
-      const newBalance = state.balance - (tx.type === 'income' ? tx.amount : -tx.amount)
-      const newTransactions = state.transactions.filter((t) => t.id !== id)
-      const newState = { transactions: newTransactions, balance: newBalance, goals: state.goals }
-      get().saveToStorage(newState)
-      return { transactions: newTransactions, balance: newBalance }
+      const newTxs = [newTx, ...state.transactions]
+      const newBal = state.balance + (tx.type === 'income' ? tx.amount : -tx.amount)
+      saveLocal({ transactions: newTxs, balance: newBal, goals: state.goals })
+      return { transactions: newTxs, balance: newBal }
     })
+    // Persistir no Supabase em background
+    await insertTransaction(newTx)
+    await saveBalance(get().balance)
   },
 
-  addTiktokIncome: (amount) => {
-    get().addTransaction({
+  // ── Remover transação ────────────────────────────────────────
+  removeTransaction: async (id) => {
+    const tx = get().transactions.find(t => t.id === id)
+    if (!tx) return
+    set((state) => {
+      const newTxs = state.transactions.filter(t => t.id !== id)
+      const newBal = state.balance - (tx.type === 'income' ? tx.amount : -tx.amount)
+      saveLocal({ transactions: newTxs, balance: newBal, goals: state.goals })
+      return { transactions: newTxs, balance: newBal }
+    })
+    await deleteTransaction(id)
+    await saveBalance(get().balance)
+  },
+
+  // ── TikTok Shop ──────────────────────────────────────────────
+  addTiktokIncome: async (amount) => {
+    await get().addTransaction({
       type: 'income',
       category: 'TikTok Shop',
       amount,
@@ -126,17 +162,20 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
     })
   },
 
-  updateGoal: (month, actual) => {
+  // ── Atualizar meta ───────────────────────────────────────────
+  updateGoal: async (month, actual) => {
     set((state) => {
-      const newGoals = state.goals.map((g) => g.month === month ? { ...g, actual } : g)
-      get().saveToStorage({ transactions: state.transactions, balance: state.balance, goals: newGoals })
+      const newGoals = state.goals.map(g => g.month === month ? { ...g, actual } : g)
+      saveLocal({ transactions: state.transactions, balance: state.balance, goals: newGoals })
       return { goals: newGoals }
     })
+    await upsertGoal(month, actual)
   },
 
+  // ── Computed: Hoje ───────────────────────────────────────────
   getToday: () => {
     const today = new Date().toISOString().split('T')[0]
-    const txs = get().transactions.filter((t) => t.date === today)
+    const txs = get().transactions.filter(t => t.date === today)
     return {
       income: txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
       expense: txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
@@ -144,9 +183,10 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
     }
   },
 
+  // ── Computed: 7 Dias ─────────────────────────────────────────
   getLast7Days: () => {
-    const { start } = getDateRange(7)
-    const txs = get().transactions.filter((t) => t.date >= start)
+    const start = dateRange(7)
+    const txs = get().transactions.filter(t => t.date >= start)
     return {
       income: txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
       expense: txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
@@ -154,9 +194,10 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
     }
   },
 
+  // ── Computed: Este Mês ───────────────────────────────────────
   getThisMonth: () => {
     const now = new Date()
-    const txs = get().transactions.filter((t) => {
+    const txs = get().transactions.filter(t => {
       const d = new Date(t.date)
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
     })
@@ -167,34 +208,28 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
     }
   },
 
+  // ── Computed: Por Categoria ──────────────────────────────────
   getByCategory: (days = 30) => {
-    const { start } = getDateRange(days)
-    const txs = get().transactions.filter((t) => t.type === 'expense' && t.date >= start)
+    const start = dateRange(days)
+    const txs = get().transactions.filter(t => t.type === 'expense' && t.date >= start)
     const result: Record<string, number> = {}
-    txs.forEach((t) => {
-      result[t.category] = (result[t.category] || 0) + t.amount
-    })
+    txs.forEach(t => { result[t.category] = (result[t.category] || 0) + t.amount })
     return result
   },
 
+  // ── Computed: Insights ───────────────────────────────────────
   getInsights: () => {
-    const { transactions: last7 } = get().getLast7Days()
-    const expenses = last7.filter(t => t.type === 'expense')
+    const expenses7 = get().transactions.filter(t => t.type === 'expense' && t.date >= dateRange(7))
     const byCategory = get().getByCategory(7)
-
-    const biggestExpense = expenses.length > 0
-      ? expenses.reduce((max, t) => t.amount > max.amount ? t : max, expenses[0])
+    const biggestExpense = expenses7.length > 0
+      ? expenses7.reduce((max, t) => t.amount > max.amount ? t : max, expenses7[0])
       : null
-
     const mostSpentCategory = Object.entries(byCategory).length > 0
-      ? Object.entries(byCategory).sort(([,a],[,b]) => b - a)[0][0]
+      ? Object.entries(byCategory).sort(([, a], [, b]) => b - a)[0][0]
       : '-'
-
-    const totalExpense7 = expenses.reduce((s, t) => s + t.amount, 0)
+    const totalExpense7 = expenses7.reduce((s, t) => s + t.amount, 0)
     const dailyAverage = totalExpense7 / 7
-    const projectedMonthly = dailyAverage * 30
-
-    return { biggestExpense, mostSpentCategory, dailyAverage, projectedMonthly }
+    return { biggestExpense, mostSpentCategory, dailyAverage, projectedMonthly: dailyAverage * 30 }
   },
 }))
 

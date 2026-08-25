@@ -1,17 +1,49 @@
 import '@/styles/globals.css'
 import type { AppProps } from 'next/app'
 import Head from 'next/head'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import useFinanceStore from '@/lib/store'
+import { isSupabaseConfigured } from '@/lib/supabase'
 
 function AppContent({ Component, pageProps }: AppProps) {
-  const loadFromStorage = useFinanceStore((state) => state.loadFromStorage)
+  const loadFromStorage = useFinanceStore(s => s.loadFromStorage)
+  const loadFromSupabase = useFinanceStore(s => s.loadFromSupabase)
+  const synced = useFinanceStore(s => s.synced)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // 1. Carrega localStorage primeiro (instantâneo)
     loadFromStorage()
+
+    // 2. Se Supabase configurado, sincroniza em background
+    if (isSupabaseConfigured()) {
+      loadFromSupabase().finally(() => setLoading(false))
+    } else {
+      setLoading(false)
+    }
   }, [])
 
-  return <Component {...pageProps} />
+  if (loading && isSupabaseConfigured()) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-olive-700 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-neutral-500">Sincronizando...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {synced && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-green-500 text-white text-xs text-center py-0.5">
+          ☁️ Sincronizado com Supabase
+        </div>
+      )}
+      <Component {...pageProps} />
+    </>
+  )
 }
 
 export default function App(props: AppProps) {
