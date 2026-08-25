@@ -1,138 +1,128 @@
 import { useState, useEffect } from 'react'
-import Header from '@/components/Header'
 import BalanceCard from '@/components/BalanceCard'
+import InsightsBar from '@/components/InsightsBar'
+import GoalTracker from '@/components/GoalTracker'
 import TransactionInput from '@/components/TransactionInput'
 import TransactionsList from '@/components/TransactionsList'
 import useFinanceStore from '@/lib/store'
-
-type FilterType = 'all' | 'income' | 'expense'
+import { isWednesday } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
+import Link from 'next/link'
 
 export default function Home() {
-  const [filter, setFilter] = useState<FilterType>('all')
-  const [showTiktokModal, setShowTiktokModal] = useState(false)
-  const [tiktokAmount, setTiktokAmount] = useState('0')
-  const setWeeklyTiktokIncome = useFinanceStore((state) => state.setWeeklyTiktokIncome)
+  const [showInput, setShowInput] = useState(false)
+  const [showTiktok, setShowTiktok] = useState(false)
+  const [tiktokAmount, setTiktokAmount] = useState('')
+  const loadFromStorage = useFinanceStore(s => s.loadFromStorage)
+  const addTiktokIncome = useFinanceStore(s => s.addTiktokIncome)
 
-  // Verificar se é quarta-feira e adicionar TikTok Shop
   useEffect(() => {
-    const checkAndAddTikTok = () => {
-      const today = new Date()
-      const dayOfWeek = today.getDay() // 0 = Sunday, 3 = Wednesday
+    loadFromStorage()
 
-      if (dayOfWeek === 3) {
-        // É quarta-feira
-        const lastTiktokDate = localStorage.getItem('lastTiktokDate')
-        const todayDate = today.toISOString().split('T')[0]
-
-        if (lastTiktokDate !== todayDate) {
-          // Não adicionamos TikTok hoje ainda
-          setShowTiktokModal(true)
-          localStorage.setItem('lastTiktokDate', todayDate)
-        }
+    // TikTok Shop toda quarta-feira
+    if (isWednesday()) {
+      const lastDate = localStorage.getItem('lastTiktok')
+      const today = new Date().toISOString().split('T')[0]
+      if (lastDate !== today) {
+        setShowTiktok(true)
       }
     }
-
-    checkAndAddTikTok()
   }, [])
 
-  const handleAddTikTok = () => {
-    const amount = parseFloat(tiktokAmount)
-    if (amount > 0) {
-      setWeeklyTiktokIncome(amount)
-      setShowTiktokModal(false)
-      setTiktokAmount('0')
+  const handleTiktok = () => {
+    const val = parseFloat(tiktokAmount.replace(',', '.'))
+    if (val > 0) {
+      addTiktokIncome(val)
+      localStorage.setItem('lastTiktok', new Date().toISOString().split('T')[0])
     }
+    setShowTiktok(false)
+    setTiktokAmount('')
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      <Header title="Niggan" subtitle="Finanças com IA" />
+    <div className="min-h-screen bg-neutral-50 flex flex-col">
+      {/* Header */}
+      <header className="sticky top-0 bg-white border-b border-neutral-100 z-40">
+        <div className="px-4 py-3 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-olive-900">Niggan</h1>
+            <p className="text-xs text-neutral-400">Controle financeiro</p>
+          </div>
+          <Link href="/settings"
+            className="w-9 h-9 bg-neutral-100 rounded-full flex items-center justify-center text-base">
+            ⚙️
+          </Link>
+        </div>
+      </header>
 
-      {/* Main Content */}
+      {/* Content */}
       <main className="flex-1 overflow-y-auto">
         <BalanceCard />
+        <GoalTracker />
+        <InsightsBar />
 
-        {/* Filter Tabs */}
-        <div className="sticky top-[76px] bg-white border-b border-neutral-100 z-30 px-4 py-3 flex gap-2">
+        {/* Botão de adicionar */}
+        <div className="px-4 mt-3 mb-3">
           <button
-            onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-              filter === 'all'
-                ? 'bg-olive-700 text-white'
-                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-            }`}
+            onClick={() => setShowInput(!showInput)}
+            className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${showInput ? 'bg-neutral-200 text-neutral-700' : 'bg-olive-700 text-white'}`}
           >
-            Todas
-          </button>
-          <button
-            onClick={() => setFilter('income')}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-              filter === 'income'
-                ? 'bg-green-600 text-white'
-                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-            }`}
-          >
-            Entradas
-          </button>
-          <button
-            onClick={() => setFilter('expense')}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-              filter === 'expense'
-                ? 'bg-red-600 text-white'
-                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-            }`}
-          >
-            Saídas
+            {showInput ? '✕ Fechar' : '+ Nova Transação'}
           </button>
         </div>
 
-        {/* Transactions List */}
-        <TransactionsList filter={filter} />
+        {/* Formulário colapsável */}
+        {showInput && (
+          <div className="bg-white border-y border-neutral-100 animate-slide-up">
+            <TransactionInput onSubmit={() => setShowInput(false)} />
+          </div>
+        )}
+
+        {/* Lista de transações */}
+        <div className="mt-3">
+          <div className="px-4 mb-2">
+            <p className="text-xs font-bold text-neutral-500 uppercase">Histórico</p>
+          </div>
+          <TransactionsList />
+        </div>
       </main>
 
-      {/* Transaction Input - Fixed Bottom */}
-      <div className="sticky bottom-0 bg-white border-t border-neutral-100 shadow-lg">
-        <TransactionInput />
-      </div>
-
-      {/* TikTok Modal */}
-      {showTiktokModal && (
+      {/* Modal TikTok Shop */}
+      {showTiktok && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
           <div className="w-full bg-white rounded-t-3xl p-6 animate-slide-up">
-            <div className="text-center mb-6">
+            <div className="text-center mb-5">
               <p className="text-4xl mb-2">🎵</p>
-              <h2 className="text-2xl font-bold text-olive-900 mb-1">
-                TikTok Shop - Quarta-feira
-              </h2>
-              <p className="text-neutral-600 text-sm">
-                Quanto você ganhou essa semana?
-              </p>
+              <h2 className="text-xl font-bold text-olive-900">TikTok Shop</h2>
+              <p className="text-sm text-neutral-500 mt-1">Quarta-feira! Quanto entrou essa semana?</p>
             </div>
 
-            <div className="mb-6">
+            <div className="relative mb-4">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 font-bold text-lg">R$</span>
               <input
                 type="number"
                 step="0.01"
                 min="0"
                 value={tiktokAmount}
-                onChange={(e) => setTiktokAmount(e.target.value)}
-                placeholder="Digite o valor"
-                className="w-full px-4 py-3 text-lg font-bold text-center bg-neutral-100 rounded-xl border-2 border-transparent focus:border-olive-500 focus:bg-white transition-all"
+                onChange={e => setTiktokAmount(e.target.value)}
+                placeholder="0,00"
                 inputMode="decimal"
+                autoFocus
+                className="w-full pl-10 pr-4 py-4 text-xl font-bold text-center bg-neutral-100 rounded-xl border-2 border-transparent focus:border-olive-500 focus:bg-white transition-all"
               />
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <button
-                onClick={handleAddTikTok}
-                disabled={parseFloat(tiktokAmount) <= 0}
-                className="w-full bg-olive-700 hover:bg-olive-800 disabled:bg-neutral-300 text-white py-3 px-4 rounded-xl font-medium transition-all"
+                onClick={handleTiktok}
+                disabled={!tiktokAmount || parseFloat(tiktokAmount) <= 0}
+                className="w-full bg-olive-700 disabled:bg-neutral-300 text-white py-3.5 rounded-xl font-bold transition-all"
               >
-                ✅ Confirmar R$ {parseFloat(tiktokAmount || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                ✅ Confirmar {tiktokAmount ? formatCurrency(parseFloat(tiktokAmount) || 0) : ''}
               </button>
               <button
-                onClick={() => setShowTiktokModal(false)}
-                className="w-full bg-neutral-100 hover:bg-neutral-200 text-neutral-900 py-3 px-4 rounded-xl font-medium transition-all"
+                onClick={() => setShowTiktok(false)}
+                className="w-full bg-neutral-100 text-neutral-600 py-3 rounded-xl font-medium"
               >
                 Pular essa semana
               </button>

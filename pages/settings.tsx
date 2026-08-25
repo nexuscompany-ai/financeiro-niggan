@@ -1,171 +1,165 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import useFinanceStore from '@/lib/store'
+import { formatCurrency, FINAL_GOAL } from '@/lib/utils'
 
 export default function Settings() {
-  const [showClearData, setShowClearData] = useState(false)
-  const transactions = useFinanceStore((state) => state.transactions)
+  const [showClear, setShowClear] = useState(false)
+  const [editGoal, setEditGoal] = useState<string | null>(null)
+  const [goalValue, setGoalValue] = useState('')
+  const transactions = useFinanceStore(s => s.transactions)
+  const balance = useFinanceStore(s => s.balance)
+  const goals = useFinanceStore(s => s.goals)
+  const updateGoal = useFinanceStore(s => s.updateGoal)
 
-  const handleClearData = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('niggan-finances-store')
-      localStorage.removeItem('lastTiktokDate')
-      window.location.reload()
-    }
+  const handleExport = () => {
+    const data = { transactions, balance, goals, exportDate: new Date().toISOString() }
+    const el = document.createElement('a')
+    el.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(JSON.stringify(data, null, 2)))
+    el.setAttribute('download', `niggan-backup-${new Date().toISOString().split('T')[0]}.json`)
+    document.body.appendChild(el)
+    el.click()
+    document.body.removeChild(el)
   }
 
-  const handleExportData = () => {
-    const data = {
-      transactions,
-      exportDate: new Date().toISOString(),
-    }
-    
-    const element = document.createElement('a')
-    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(JSON.stringify(data, null, 2)))
-    element.setAttribute('download', `niggan-backup-${new Date().toISOString().split('T')[0]}.json`)
-    element.style.display = 'none'
-    document.body.appendChild(element)
-    element.click()
-    document.body.removeChild(element)
+  const handleClear = () => {
+    localStorage.removeItem('niggan-v2')
+    localStorage.removeItem('lastTiktok')
+    window.location.href = '/'
+  }
+
+  const handleSaveGoal = (month: string) => {
+    const val = parseFloat(goalValue.replace(',', '.'))
+    if (val > 0) updateGoal(month, val)
+    setEditGoal(null)
+    setGoalValue('')
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
+    <div className="min-h-screen bg-neutral-50">
       <header className="sticky top-0 bg-white border-b border-neutral-100 z-40">
         <div className="px-4 py-3 flex items-center gap-3">
-          <Link href="/" className="text-2xl hover:opacity-70 transition-opacity">
-            ←
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-olive-900">Configurações</h1>
-            <p className="text-xs text-neutral-500">Gerenciar dados e preferências</p>
-          </div>
+          <Link href="/" className="text-2xl">←</Link>
+          <h1 className="text-xl font-bold text-olive-900">Configurações</h1>
         </div>
       </header>
 
-      {/* Content */}
-      <main className="px-4 py-6 pb-safe">
-        {/* App Info */}
-        <section className="mb-6">
-          <h2 className="text-sm font-bold text-neutral-600 uppercase mb-3">App</h2>
-          <div className="bg-olive-50 rounded-xl p-4 border border-olive-200">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-neutral-700">Versão</span>
-              <span className="font-bold text-olive-900">2.0.0</span>
+      <main className="px-4 py-4 space-y-4 pb-10">
+        {/* Resumo */}
+        <div className="bg-white rounded-xl p-4 border border-neutral-100">
+          <p className="text-xs font-bold text-neutral-500 uppercase mb-3">Resumo</p>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-neutral-600">Saldo atual</span>
+              <span className="font-bold text-olive-900">{formatCurrency(balance)}</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-neutral-700">Status</span>
-              <span className="text-green-600 font-medium">🟢 Online</span>
+            <div className="flex justify-between">
+              <span className="text-neutral-600">Transações</span>
+              <span className="font-bold">{transactions.length}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-neutral-600">Meta final</span>
+              <span className="font-bold">{formatCurrency(FINAL_GOAL)} até Mai/2027</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-neutral-600">Progresso</span>
+              <span className="font-bold text-olive-700">{Math.round((balance / FINAL_GOAL) * 100)}%</span>
             </div>
           </div>
-        </section>
+        </div>
 
-        {/* Data Section */}
-        <section className="mb-6">
-          <h2 className="text-sm font-bold text-neutral-600 uppercase mb-3">Dados</h2>
-          
-          <div className="space-y-3">
-            {/* Transactions Count */}
-            <div className="bg-white rounded-xl p-4 border border-neutral-200">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-neutral-700">Transações</span>
-                <span className="font-bold text-olive-900">{transactions.length}</span>
-              </div>
-              <p className="text-xs text-neutral-500">
-                {transactions.length > 0 
-                  ? `Última: ${new Date(transactions[transactions.length - 1].date).toLocaleDateString('pt-BR')}`
-                  : 'Nenhuma transação ainda'}
-              </p>
-            </div>
-
-            {/* Export Button */}
-            <button
-              onClick={handleExportData}
-              className="w-full bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl p-4 text-left transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-green-900">📊 Exportar Dados</p>
-                  <p className="text-xs text-green-700">Baixar backup JSON</p>
+        {/* Evolução de Patrimônio */}
+        <div className="bg-white rounded-xl border border-neutral-100 overflow-hidden">
+          <div className="px-4 py-3 border-b border-neutral-100">
+            <p className="text-xs font-bold text-neutral-500 uppercase">Evolução Patrimonial</p>
+            <p className="text-xs text-neutral-400 mt-0.5">Toque para registrar o patrimônio do mês</p>
+          </div>
+          {goals.map(goal => (
+            <div key={goal.month} className="border-b border-neutral-50 last:border-0">
+              {editGoal === goal.month ? (
+                <div className="px-4 py-3 flex gap-2 items-center">
+                  <p className="text-sm font-medium w-20 flex-shrink-0">{goal.month}</p>
+                  <input
+                    type="number"
+                    value={goalValue}
+                    onChange={e => setGoalValue(e.target.value)}
+                    placeholder="Patrimônio"
+                    className="flex-1 px-3 py-2 bg-neutral-100 rounded-lg text-sm"
+                    autoFocus
+                    inputMode="decimal"
+                  />
+                  <button onClick={() => handleSaveGoal(goal.month)} className="text-olive-700 font-bold text-sm">OK</button>
+                  <button onClick={() => setEditGoal(null)} className="text-neutral-400 text-sm">✕</button>
                 </div>
-                <span className="text-xl">→</span>
-              </div>
-            </button>
-
-            {/* Clear Data Button */}
-            <button
-              onClick={() => setShowClearData(!showClearData)}
-              className="w-full bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl p-4 text-left transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-red-900">🗑️ Limpar Tudo</p>
-                  <p className="text-xs text-red-700">Deletar todas as transações</p>
+              ) : (
+                <div
+                  onClick={() => { setEditGoal(goal.month); setGoalValue(goal.actual?.toString() || '') }}
+                  className="px-4 py-3 flex items-center justify-between cursor-pointer active:bg-neutral-50"
+                >
+                  <div>
+                    <p className="text-sm font-medium">{goal.month}</p>
+                    <p className="text-xs text-neutral-400">Meta: {formatCurrency(goal.target)}</p>
+                  </div>
+                  <div className="text-right">
+                    {goal.actual !== null ? (
+                      <>
+                        <p className="text-sm font-bold text-olive-700">{formatCurrency(goal.actual)}</p>
+                        <p className={`text-xs font-medium ${goal.actual >= goal.target ? 'text-green-600' : 'text-red-500'}`}>
+                          {goal.actual >= goal.target ? '✅ Bateu' : `−${formatCurrency(goal.target - goal.actual)}`}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-xs text-neutral-300">Toque para registrar</p>
+                    )}
+                  </div>
                 </div>
-                <span className="text-xl">→</span>
-              </div>
-            </button>
+              )}
+            </div>
+          ))}
+        </div>
 
-            {showClearData && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 animate-slide-up">
-                <p className="text-sm text-red-900 mb-4">
-                  ⚠️ Tem certeza? Isso vai deletar TUDO e não pode ser desfeito.
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowClearData(false)}
-                    className="flex-1 bg-red-100 hover:bg-red-200 text-red-900 font-medium py-2 rounded-lg transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleClearData}
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2 rounded-lg transition-colors"
-                  >
-                    Deletar Tudo
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
+        {/* Ações */}
+        <div className="space-y-2">
+          <button onClick={handleExport}
+            className="w-full bg-white border border-neutral-200 rounded-xl p-4 flex items-center justify-between active:bg-neutral-50">
+            <div className="text-left">
+              <p className="text-sm font-medium">📊 Exportar Dados</p>
+              <p className="text-xs text-neutral-400">Baixar backup JSON</p>
+            </div>
+            <span className="text-neutral-400">→</span>
+          </button>
 
-        {/* Mia Section */}
-        <section className="mb-6">
-          <h2 className="text-sm font-bold text-neutral-600 uppercase mb-3">Mia - IA</h2>
-          <div className="bg-white rounded-xl p-4 border border-neutral-200">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-3xl">🤖</span>
-              <div>
-                <p className="font-bold text-neutral-900">Assistente Mia</p>
-                <p className="text-xs text-neutral-500">Powered by Anthropic Claude</p>
+          <button onClick={() => setShowClear(!showClear)}
+            className="w-full bg-red-50 border border-red-100 rounded-xl p-4 flex items-center justify-between active:bg-red-100">
+            <div className="text-left">
+              <p className="text-sm font-medium text-red-700">🗑️ Limpar Tudo</p>
+              <p className="text-xs text-red-400">Deletar todas as transações</p>
+            </div>
+            <span className="text-red-400">→</span>
+          </button>
+
+          {showClear && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+              <p className="text-sm text-red-900 mb-3 font-medium">Tem certeza? Isso não pode ser desfeito!</p>
+              <div className="flex gap-2">
+                <button onClick={() => setShowClear(false)}
+                  className="flex-1 bg-white border border-red-200 text-red-700 py-2.5 rounded-lg font-medium text-sm">
+                  Cancelar
+                </button>
+                <button onClick={handleClear}
+                  className="flex-1 bg-red-600 text-white py-2.5 rounded-lg font-bold text-sm">
+                  Deletar Tudo
+                </button>
               </div>
             </div>
-            <p className="text-sm text-neutral-600 mb-3">
-              Mia processa suas transações em linguagem natural. Ela entende padrões e categoriza automaticamente!
-            </p>
-            <div className="text-xs text-neutral-500 bg-neutral-50 p-2 rounded">
-              Exemplos: "gastei 50 em comida" ou "recebi 100 de freelancer"
-            </div>
-          </div>
-        </section>
+          )}
+        </div>
 
-        {/* About */}
-        <section>
-          <h2 className="text-sm font-bold text-neutral-600 uppercase mb-3">Sobre</h2>
-          <div className="bg-white rounded-xl p-4 border border-neutral-200 text-center">
-            <p className="text-2xl mb-2">🤑</p>
-            <p className="font-bold text-olive-900 mb-1">Niggan Finances</p>
-            <p className="text-xs text-neutral-600 mb-3">
-              App de finanças pessoais 100% mobile com IA integrada
-            </p>
-            <p className="text-xs text-neutral-500">
-              Desenvolvido com ❤️ para Felipe<br />
-              © 2026 Niggan
-            </p>
-          </div>
-        </section>
+        {/* Info */}
+        <div className="text-center py-4">
+          <p className="text-xs text-neutral-400">Niggan Finances v2.0</p>
+          <p className="text-xs text-neutral-300">Desenvolvido para Felipe 🚀</p>
+        </div>
       </main>
     </div>
   )
