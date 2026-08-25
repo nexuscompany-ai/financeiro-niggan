@@ -7,8 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "deploy": "vercel --prod"
+    "lint": "next lint"
   },
   "dependencies": {
     "next": "^14.0.0",
@@ -16,9 +15,7 @@
     "react-dom": "^18.2.0",
     "axios": "^1.6.0",
     "date-fns": "^2.30.0",
-    "zustand": "^4.4.0",
-    "@anthropic-ai/sdk": "^0.20.0",
-    "dotenv": "^16.3.0"
+    "zustand": "^4.4.0"
   },
   "devDependencies": {
     "typescript": "^5.3.0",
