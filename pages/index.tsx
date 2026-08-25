@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import Header from '@/components/Header'
 import BalanceCard from '@/components/BalanceCard'
 import TransactionInput from '@/components/TransactionInput'
 import TransactionsList from '@/components/TransactionsList'
@@ -45,18 +46,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      {/* Header */}
-      <header className="sticky top-0 bg-white border-b border-neutral-100 z-40">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-olive-900">Niggan</h1>
-            <p className="text-xs text-neutral-500">Finanças com IA</p>
-          </div>
-          <div className="w-10 h-10 bg-olive-100 rounded-full flex items-center justify-center text-lg">
-            🤖
-          </div>
-        </div>
-      </header>
+      <Header title="Niggan" subtitle="Finanças com IA" />
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto">
