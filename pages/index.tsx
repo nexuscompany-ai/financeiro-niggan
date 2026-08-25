@@ -13,6 +13,7 @@ export default function Home() {
   const [showInput, setShowInput] = useState(false)
   const [showTiktok, setShowTiktok] = useState(false)
   const [tiktokAmount, setTiktokAmount] = useState('')
+  const [hidden, setHidden] = useState(false)
   const load = useFinanceStore(s => s.load)
   const addTransaction = useFinanceStore(s => s.addTransaction)
 
@@ -44,24 +45,37 @@ export default function Home() {
             <h1 className="text-xl font-bold text-olive-900">Niggan 💰</h1>
             <p className="text-xs text-neutral-400">Controle financeiro</p>
           </div>
-          <Link href="/settings" className="w-9 h-9 bg-neutral-100 rounded-full flex items-center justify-center text-base active:bg-neutral-200">
-            ⚙️
-          </Link>
+          <div className="flex items-center gap-2">
+            {/* Olhinho global */}
+            <button onClick={() => setHidden(h => !h)}
+              className="w-9 h-9 bg-neutral-100 rounded-full flex items-center justify-center text-base active:bg-neutral-200"
+              title={hidden ? 'Mostrar valores' : 'Ocultar valores'}>
+              {hidden ? '👁️' : '🙈'}
+            </button>
+            <Link href="/settings"
+              className="w-9 h-9 bg-neutral-100 rounded-full flex items-center justify-center text-base active:bg-neutral-200">
+              ⚙️
+            </Link>
+          </div>
         </div>
       </header>
 
       <main className="pb-8">
-        <BalanceCard />
-        <PatrimonyCard />
-        <GoalTracker />
-        <InsightsBar />
+        <BalanceCard hidden={hidden} />
+        <PatrimonyCard hidden={hidden} />
+        <GoalTracker hidden={hidden} />
+        <InsightsBar hidden={hidden} />
 
-        {/* Botão Nova Transação */}
-        <div className="px-4 mt-3 mb-3">
+        {/* Botões de ação */}
+        <div className="px-4 mt-3 mb-3 grid grid-cols-2 gap-2">
           <button onClick={() => setShowInput(!showInput)}
-            className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all ${showInput ? 'bg-neutral-200 text-neutral-600' : 'bg-olive-700 text-white'}`}>
+            className={`py-3.5 rounded-xl font-bold text-sm transition-all ${showInput ? 'bg-neutral-200 text-neutral-600' : 'bg-olive-700 text-white'}`}>
             {showInput ? '✕ Fechar' : '+ Nova Transação'}
           </button>
+          <Link href="/cofres"
+            className="py-3.5 rounded-xl font-bold text-sm bg-white border-2 border-olive-200 text-olive-800 text-center flex items-center justify-center gap-1 active:bg-olive-50">
+            🏦 Cofres
+          </Link>
         </div>
 
         {showInput && (
@@ -73,9 +87,9 @@ export default function Home() {
         {/* Histórico */}
         <div className="px-4 mb-2">
           <p className="text-xs font-bold text-neutral-500 uppercase">Histórico</p>
-          <p className="text-xs text-neutral-400">Toque em uma transação para editar ou deletar</p>
+          <p className="text-xs text-neutral-400">Toque para editar ou deletar</p>
         </div>
-        <TransactionsList />
+        <TransactionsList hidden={hidden} />
       </main>
 
       {/* Modal TikTok */}
