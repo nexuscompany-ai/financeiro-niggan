@@ -93,7 +93,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
   {id:"ago-5",type:"income",category:"Outras receitas",amount:50,description:"PIX Gabriel Almeida de Sousa",date:"2026-08-07"},
   {id:"ago-6",type:"income",category:"TikTok Shop",amount:237.13,description:"Bytedance Brasil - TikTok Shop",date:"2026-08-12"},
   {id:"ago-7",type:"income",category:"Outras receitas",amount:100,description:"PIX Felipe Almeida de Sousa",date:"2026-08-14"},
-  {id:"ago-8",type:"income",category:"F7 Empresa",amount:893.06,description:"Contrato F7",date:"2026-08-17"},
+  {id:"ago-8",type:"income",category:"Contratos FGN",amount:893.06,description:"Contrato FGN",date:"2026-08-17"},
   {id:"ago-9",type:"income",category:"TikTok Shop",amount:386.80,description:"Bytedance Brasil - TikTok Shop",date:"2026-08-19"},
   {id:"ago-10",type:"income",category:"Outras receitas",amount:568.58,description:"PIX Felipe Almeida de Sousa",date:"2026-08-19"},
   {id:"ago-11",type:"expense",category:"Combustível",amount:151.96,description:"Posto Portal Estrela D Barueri",date:"2026-08-01"},
@@ -112,7 +112,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
   {id:"ago-24",type:"expense",category:"Lazer",amount:20,description:"Festpay Payments São Paulo",date:"2026-08-15"},
   {id:"ago-25",type:"expense",category:"Outras despesas",amount:65,description:"PIX Julia Marques Pereira Lima",date:"2026-08-17"},
   {id:"ago-26",type:"expense",category:"Alimentação",amount:19,description:"Café Yeshua Barueri",date:"2026-08-17"},
-  {id:"ago-27",type:"investment",category:"CDB / Reserva",amount:540,description:"CDB C6 Lim. Garant.",date:"2026-08-17",fromCategory:"F7 Empresa"},
+  {id:"ago-27",type:"investment",category:"CDB / Reserva",amount:540,description:"CDB C6 Lim. Garant.",date:"2026-08-17",fromCategory:"Contratos FGN"},
   {id:"ago-28",type:"expense",category:"Outras despesas",amount:95,description:"PIX Gabriel Almeida de Sousa",date:"2026-08-18"},
   {id:"ago-29",type:"investment",category:"CDB / Reserva",amount:468,description:"CDB C6 Lim. Garant.",date:"2026-08-19",fromCategory:"Outras receitas"},
 ]

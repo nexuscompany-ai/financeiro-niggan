@@ -64,7 +64,7 @@ const PATHS: Record<string, string> = {
 // Categoria → ícone
 export const CATEGORY_ICON: Record<string, string> = {
   'Salário FGL Brasil': 'briefcase',
-  'Contratos / Instalações': 'tool',
+  'Contratos FGN': 'tool',
   'TikTok Shop': 'tiktok',
   'F7 Empresa': 'building',
   'Outras receitas': 'coins',
