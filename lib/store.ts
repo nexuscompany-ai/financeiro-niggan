@@ -122,21 +122,25 @@ const INITIAL_CC: CreditCardPurchase[] = [
 ]
 
 function startOfMonth(): string {
-  const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]
+  const d = new Date()
+  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]
 }
 function daysAgo(n: number): string {
   const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().split('T')[0]
 }
 
-// Helpers para sync com Supabase
+// ✅ Usando ANON_KEY_SUPA como nome da variável
 async function fetchFromSupabase() {
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const key = process.env.NEXT_PUBLIC_ANON_KEY_SUPA
     if (!url || !key) return null
 
     const res = await fetch(`${url}/rest/v1/niggan_data?id=eq.main&select=data`, {
-      headers: { apikey: key, Authorization: `Bearer ${key}` }
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+      }
     })
     if (!res.ok) return null
     const rows = await res.json()
@@ -147,7 +151,7 @@ async function fetchFromSupabase() {
 async function pushToSupabase(data: any) {
   try {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const key = process.env.NEXT_PUBLIC_ANON_KEY_SUPA
     if (!url || !key) return
 
     await fetch(`${url}/rest/v1/niggan_data?id=eq.main`, {
@@ -175,7 +179,7 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
     if (typeof window === 'undefined') return
     set({ syncing: true })
 
-    // 1. Tentar Supabase primeiro (dados ao vivo)
+    // 1. Supabase (tempo real)
     const remote = await fetchFromSupabase()
     if (remote && remote.transactions) {
       set({
@@ -186,12 +190,11 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
         syncing: false,
         lastSync: new Date().toISOString(),
       })
-      // Salva também no localStorage como cache
       localStorage.setItem('niggan-cache', JSON.stringify(remote))
       return
     }
 
-    // 2. Fallback: localStorage
+    // 2. Cache local
     try {
       const cached = localStorage.getItem('niggan-cache')
       if (cached) {
@@ -221,9 +224,7 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
 
   save: async (data) => {
     if (typeof window === 'undefined') return
-    // Salva local imediato (UX rápida)
     localStorage.setItem('niggan-cache', JSON.stringify(data))
-    // Sync Supabase em background
     pushToSupabase(data)
   },
 
