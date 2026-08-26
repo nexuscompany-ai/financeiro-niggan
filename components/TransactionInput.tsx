@@ -25,69 +25,77 @@ export default function TransactionInput({ onSubmit }: { onSubmit?: () => void }
     if (!description.trim()) { setError('Adicione uma descrição'); return }
 
     addTransaction({
-      type,
-      category,
-      amount: val,
-      description: description.trim(),
+      type, category, amount: val, description: description.trim(),
       date: new Date().toISOString().split('T')[0],
-      ...(type === 'investment' ? { fromCategory } : {}),
+      ...(type==='investment' ? { fromCategory } : {}),
     })
     setAmount(''); setDescription(''); setError('')
     onSubmit?.()
   }
 
+  const typeConfig = {
+    expense:    { label: '↑ Saída',    bg: '#C0392B', active: '#FCECEA', text: '#C0392B' },
+    income:     { label: '↓ Entrada',  bg: '#2D7A4F', active: '#EBF7F0', text: '#2D7A4F' },
+    investment: { label: '↗ Investir', bg: '#2563EB', active: '#EFF6FF', text: '#2563EB' },
+  }
+
+  const activeColor = typeConfig[type].bg
+
   return (
-    <div className="px-4 py-3">
-      <form onSubmit={handleSubmit} className="space-y-2">
-        {/* Tipo */}
-        <div className="flex gap-2">
-          {([['expense','↑ Saída','bg-red-600'],['income','↓ Entrada','bg-green-600'],['investment','📈 Invest.','bg-blue-600']] as const).map(([t,label,cls]) => (
+    <div className="px-4 py-4">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        {/* Type selector */}
+        <div className="flex gap-2 p-1 rounded-2xl" style={{ background: '#F0EFE9' }}>
+          {(['expense','income','investment'] as const).map(t => (
             <button key={t} type="button" onClick={() => handleType(t)}
-              className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition-all ${type===t ? `${cls} text-white` : 'bg-neutral-100 text-neutral-500'}`}>
-              {label}
+              className="flex-1 py-2 rounded-xl text-xs font-semibold transition-all pressable"
+              style={type===t
+                ? { background: '#fff', color: typeConfig[t].text, boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }
+                : { background: 'transparent', color: '#A8A79E' }}>
+              {typeConfig[t].label}
             </button>
           ))}
         </div>
 
-        {/* Valor + Categoria */}
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 font-bold text-sm">R$</span>
-            <input type="number" step="0.01" min="0" value={amount}
-              onChange={e => setAmount(e.target.value)} placeholder="0,00" inputMode="decimal"
-              className="w-full pl-9 pr-3 py-3 bg-neutral-100 rounded-xl border-2 border-transparent focus:border-olive-400 font-bold text-base transition-all" />
-          </div>
-          <select value={category} onChange={e => setCategory(e.target.value)}
-            className="flex-1 px-3 py-3 bg-neutral-100 rounded-xl border-2 border-transparent focus:border-olive-400 text-sm cursor-pointer">
-            {categories.map(c => <option key={c}>{c}</option>)}
-          </select>
+        {/* Amount */}
+        <div className="relative rounded-2xl overflow-hidden" style={{ background: '#fff', border: '1.5px solid #E5E3D8' }}>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 font-medium text-sm" style={{ color: '#A8A79E' }}>R$</span>
+          <input type="number" step="0.01" min="0" value={amount}
+            onChange={e => setAmount(e.target.value)} placeholder="0,00" inputMode="decimal"
+            className="w-full pl-10 pr-4 py-3.5 bg-transparent font-bold text-lg outline-none tabular"
+            style={{ color: '#292615' }} />
         </div>
 
-        {/* Se for investimento: de qual cofre veio? */}
+        {/* Category + Description row */}
+        <div className="flex gap-2">
+          <select value={category} onChange={e => setCategory(e.target.value)}
+            className="flex-1 px-3 py-3 rounded-xl text-sm outline-none cursor-pointer"
+            style={{ background: '#fff', border: '1.5px solid #E5E3D8', color: '#292615' }}>
+            {categories.map(c => <option key={c}>{c}</option>)}
+          </select>
+          <input type="text" value={description} onChange={e => setDescription(e.target.value)}
+            placeholder="Descrição" maxLength={60}
+            className="flex-1 px-3 py-3 rounded-xl text-sm outline-none"
+            style={{ background: '#fff', border: '1.5px solid #E5E3D8', color: '#292615' }} />
+        </div>
+
+        {/* Investment origin */}
         {type === 'investment' && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
-            <p className="text-xs font-bold text-blue-700 mb-2">💡 De qual cofre vem esse investimento?</p>
+          <div className="rounded-xl p-3 animate-fade-in" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+            <p className="text-xs font-semibold mb-2" style={{ color: '#2563EB' }}>De qual cofre vem este investimento?</p>
             <select value={fromCategory} onChange={e => setFromCategory(e.target.value)}
-              className="w-full px-3 py-2.5 bg-white rounded-lg border border-blue-200 text-sm cursor-pointer text-blue-900 font-medium">
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none cursor-pointer"
+              style={{ background: '#fff', border: '1px solid #BFDBFE', color: '#1D4ED8' }}>
               {INCOME_CATEGORIES.map(c => <option key={c}>{c}</option>)}
             </select>
-            <p className="text-xs text-blue-500 mt-1.5">
-              O cofre "{fromCategory}" vai manter o total de entradas, mas o investimento aparece no histórico dele.
-            </p>
           </div>
         )}
 
-        {/* Descrição */}
-        <input type="text" value={description} onChange={e => setDescription(e.target.value)}
-          placeholder={type==='investment' ? 'Ex: Aporte C6 CDB' : 'Descrição'}
-          className="w-full px-4 py-3 bg-neutral-100 rounded-xl border-2 border-transparent focus:border-olive-400 text-sm transition-all"
-          maxLength={60} />
+        {error && <p className="text-xs px-1 font-medium" style={{ color: '#C0392B' }}>{error}</p>}
 
-        {error && <p className="text-red-500 text-xs px-1">{error}</p>}
-
-        <button type="submit"
-          className={`w-full py-3 rounded-xl font-bold text-white text-sm transition-all ${type==='income' ? 'bg-green-600' : type==='investment' ? 'bg-blue-600' : 'bg-red-600'}`}>
-          {type==='income' ? '↓ Registrar Entrada' : type==='investment' ? '📈 Registrar Investimento' : '↑ Registrar Saída'}
+        <button type="submit" className="w-full py-3.5 rounded-2xl font-semibold text-sm transition-all pressable"
+          style={{ background: activeColor, color: '#fff' }}>
+          {typeConfig[type].label} · confirmar
         </button>
       </form>
     </div>

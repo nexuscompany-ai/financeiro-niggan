@@ -1,133 +1,186 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  /* Olive palette */
+  --olive-50:  #F7F6F2;
+  --olive-100: #EDEBD8;
+  --olive-200: #D8D4B8;
+  --olive-300: #BDB88F;
+  --olive-400: #A09868;
+  --olive-500: #857A50;
+  --olive-600: #6B6140;
+  --olive-700: #544C31;
+  --olive-800: #3D3822;
+  --olive-900: #292615;
+  --olive-950: #171509;
+
+  /* Accent */
+  --gold: #C9A84C;
+  --gold-light: #F0D98A;
+
+  /* Neutrals */
+  --white: #FFFFFF;
+  --surface: #F8F8F6;
+  --surface-2: #F0EFE9;
+  --border: #E5E3D8;
+  --text-primary: #1A1A14;
+  --text-secondary: #6B6A60;
+  --text-muted: #A8A79E;
+
+  /* Status */
+  --green: #2D7A4F;
+  --green-light: #EBF7F0;
+  --red: #C0392B;
+  --red-light: #FCECEA;
+  --blue: #2563EB;
+  --blue-light: #EFF6FF;
+}
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
-}
-
-html {
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  background-color: #ffffff;
-  color: #2a2420;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 1rem;
+html, body {
+  background: var(--surface);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 16px;
   line-height: 1.5;
   overflow-x: hidden;
-  padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }
 
-/* Scrollbar estilizado */
-::-webkit-scrollbar {
-  width: 6px;
+/* Display font for headings */
+.font-display {
+  font-family: 'Space Grotesk', sans-serif;
 }
 
-::-webkit-scrollbar-track {
-  background: #f5f5f0;
+/* Number font - tabular figures */
+.font-mono, .tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
-::-webkit-scrollbar-thumb {
-  background: #a89a7e;
-  border-radius: 3px;
-}
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #8b7d5e;
-}
+/* Safe area */
+.pb-safe { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
+.pt-safe { padding-top: max(0px, env(safe-area-inset-top)); }
 
-/* Input e textarea */
-input,
-textarea,
-select {
-  font-family: inherit;
-  font-size: inherit;
-  border: none;
-  background: transparent;
+/* Animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
-input:focus,
-textarea:focus,
-select:focus {
-  outline: none;
-}
-
-/* Placeholder */
-::placeholder {
-  color: #9ca3af;
-}
-
-/* Transições suaves */
-button,
-a,
-input,
-textarea {
-  transition: all 0.2s ease-in-out;
-}
-
-/* Prevenção de zoom em inputs */
-@supports (padding: max(0px)) {
-  input,
-  textarea,
-  select {
-    padding: 1rem;
-    font-size: 16px; /* Evita zoom em iOS */
-  }
-}
-
-/* Animações */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
-
 @keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-in-out;
+.animate-fade-up  { animation: fadeUp  0.3s cubic-bezier(.16,1,.3,1) both; }
+.animate-fade-in  { animation: fadeIn  0.2s ease both; }
+.animate-slide-up { animation: slideUp 0.4s cubic-bezier(.16,1,.3,1) both; }
+
+/* Glass effect */
+.glass {
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
-.animate-slide-up {
-  animation: slideUp 0.3s ease-in-out;
+/* Olive gradient card */
+.card-olive {
+  background: linear-gradient(135deg, #3D3822 0%, #292615 60%, #1A150A 100%);
 }
 
-/* Print styles */
-@media print {
-  body {
-    background: white;
-  }
-  
-  * {
-    box-shadow: none !important;
-    text-shadow: none !important;
-  }
+/* C6 Black card */
+.card-c6 {
+  background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
+  position: relative;
+  overflow: hidden;
+}
+.card-c6::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(201,168,76,0.15) 0%, transparent 70%);
+  pointer-events: none;
 }
 
-/* Modo escuro (futuro suporte) */
-@media (prefers-color-scheme: dark) {
-  body {
-    background-color: #1f1f1f;
-    color: #f5f5f0;
-  }
+/* Nubank card */
+.card-nubank {
+  background: linear-gradient(135deg, #820AD1 0%, #5A0091 100%);
+  position: relative;
+  overflow: hidden;
+}
+.card-nubank::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  left: -10%;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Progress bar */
+.progress-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--olive-600), var(--olive-400));
+  transition: width 0.6s cubic-bezier(.16,1,.3,1);
+}
+
+/* Tag / Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Input */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+input, select, textarea { font-family: inherit; font-size: 16px; }
+
+/* Active states */
+.pressable {
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+.pressable:active {
+  transform: scale(0.97);
+  opacity: 0.85;
 }

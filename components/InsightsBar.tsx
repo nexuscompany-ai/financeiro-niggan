@@ -11,45 +11,57 @@ export default function InsightsBar({ hidden = false }: { hidden?: boolean }) {
   const last7 = getLast7Days()
   const month = getThisMonth()
   const ins = getInsights()
-
-  const fmt = (v: number) => hidden ? '••••' : formatCurrency(v)
+  const fmt = (v: number) => hidden ? '•••' : formatCurrency(v)
 
   const now = new Date()
   const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate()
   const dayOfMonth = now.getDate()
-  const dailyBudget = month.income > 0 ? (month.income - month.investment) / daysInMonth : 0
-  const onTrack = month.expense <= dailyBudget * dayOfMonth
+  const expectedExpense = month.income > 0 ? (month.income / daysInMonth) * dayOfMonth : 0
+  const onTrack = month.expense <= expectedExpense || expectedExpense === 0
 
   const cards = [
-    { label: 'Gasto hoje', value: fmt(today.expense), color: 'text-red-600', bg: 'bg-red-50', icon: '📅' },
-    { label: 'Últimos 7 dias', value: fmt(last7.expense), color: 'text-orange-600', bg: 'bg-orange-50', icon: '📆' },
-    { label: 'Entrou hoje', value: fmt(today.income), color: 'text-green-600', bg: 'bg-green-50', icon: '💚' },
-    { label: 'Média/dia mês', value: fmt(ins.dailyAverage), color: 'text-blue-600', bg: 'bg-blue-50', icon: '📊' },
-    { label: 'Projeção mês', value: fmt(ins.projectedMonthly), color: 'text-purple-600', bg: 'bg-purple-50', icon: '📈' },
-    { label: 'Top gasto', value: hidden ? '••••' : ins.mostSpentCategory, color: 'text-olive-700', bg: 'bg-olive-50', icon: '🏷️', small: true },
+    { label: 'Hoje', sublabel: 'gasto', value: fmt(today.expense), positive: false },
+    { label: '7 dias', sublabel: 'gasto', value: fmt(last7.expense), positive: false },
+    { label: 'Hoje', sublabel: 'entrou', value: fmt(today.income), positive: true },
+    { label: 'Média', sublabel: 'por dia', value: fmt(ins.dailyAverage), positive: null },
+    { label: 'Projeção', sublabel: 'mensal', value: fmt(ins.projectedMonthly), positive: null },
+    { label: 'Mais gasto', sublabel: 'categoria', value: hidden ? '•••' : (ins.mostSpentCategory.length > 10 ? ins.mostSpentCategory.slice(0,10)+'…' : ins.mostSpentCategory), positive: null },
   ]
 
   return (
     <div className="px-4 mb-3">
-      {/* Status do mês */}
-      <div className={`rounded-xl px-4 py-2.5 mb-2 flex items-center justify-between ${onTrack ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-        <div>
-          <p className={`text-xs font-bold ${onTrack ? 'text-green-700' : 'text-red-700'}`}>
-            {onTrack ? '✅ No caminho certo este mês' : '⚠️ Gastos acima do esperado'}
-          </p>
-          <p className="text-xs text-neutral-500 mt-0.5">
-            Dia {dayOfMonth}/{daysInMonth} · Gasto: {fmt(month.expense)} · Esperado: {fmt(dailyBudget * dayOfMonth)}
+      {/* Status bar */}
+      <div className="rounded-2xl px-4 py-3 mb-3 flex items-center justify-between"
+        style={{ background: onTrack ? '#EBF7F0' : '#FCECEA', border: `1px solid ${onTrack ? '#86EFAC' : '#FCA5A5'}` }}>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full" style={{ background: onTrack ? '#2D7A4F' : '#C0392B' }} />
+          <p className="text-xs font-semibold" style={{ color: onTrack ? '#2D7A4F' : '#C0392B' }}>
+            {onTrack ? 'No ritmo certo este mês' : 'Gastos acima do esperado'}
           </p>
         </div>
+        <p className="text-xs tabular" style={{ color: onTrack ? '#2D7A4F' : '#C0392B', opacity: 0.7 }}>
+          dia {dayOfMonth}/{daysInMonth}
+        </p>
       </div>
 
-      <p className="text-xs font-bold text-neutral-500 uppercase mb-2">Insights rápidos</p>
+      {/* Section header */}
+      <div className="flex items-center gap-2 mb-2.5">
+        <div className="w-4 h-4 rounded-sm" style={{ background: 'linear-gradient(135deg, #544C31, #3D3822)' }} />
+        <p className="text-xs font-semibold tracking-wide uppercase" style={{ color: '#6B6140' }}>Insights do mês</p>
+      </div>
+
       <div className="grid grid-cols-3 gap-2">
-        {cards.map(c => (
-          <div key={c.label} className={`${c.bg} rounded-xl p-3`}>
-            <p className="text-base mb-1">{c.icon}</p>
-            <p className={`${(c as any).small ? 'text-xs' : 'text-sm'} font-bold ${c.color} leading-tight truncate`}>{c.value}</p>
-            <p className="text-xs text-neutral-500 mt-0.5">{c.label}</p>
+        {cards.map((c, i) => (
+          <div key={i} className="rounded-2xl p-3 shadow-card" style={{ background: '#fff', border: '1px solid #F0EFE9' }}>
+            <div className="flex items-center gap-1 mb-2">
+              <span className="text-xs font-medium" style={{ color: '#A8A79E' }}>{c.label}</span>
+              <span className="text-xs" style={{ color: '#D8D4B8' }}>·</span>
+              <span className="text-xs" style={{ color: '#C8C5B8' }}>{c.sublabel}</span>
+            </div>
+            <p className="text-sm font-bold tabular leading-none"
+              style={{ color: c.positive === true ? '#2D7A4F' : c.positive === false ? '#C0392B' : '#292615' }}>
+              {c.value}
+            </p>
           </div>
         ))}
       </div>

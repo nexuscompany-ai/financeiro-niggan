@@ -6,7 +6,8 @@ export default function GoalTracker({ hidden = false }: { hidden?: boolean }) {
   const goals = useFinanceStore(s => s.goals)
   const patrimony = getTotalPatrimony()
   const progress = getProgressPercent(patrimony, FINAL_GOAL)
-  const fmt = (v: number) => hidden ? '••••' : formatCurrency(v)
+  const fmt = (v: number) => hidden ? '•••••' : formatCurrency(v)
+
   const now = new Date()
   const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
   const currentGoal = goals.find(g => g.month.startsWith(months[now.getMonth()]))
@@ -14,28 +15,45 @@ export default function GoalTracker({ hidden = false }: { hidden?: boolean }) {
 
   return (
     <div className="px-4 mb-3">
-      <div className="bg-olive-50 border border-olive-200 rounded-xl p-4">
-        <div className="flex justify-between items-start mb-2">
+      <div className="rounded-2xl p-4 shadow-card" style={{ background: '#fff', border: '1px solid #F0EFE9' }}>
+        <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="text-xs font-bold text-olive-800 uppercase">Meta: R$ 30k até Mai/2027</p>
-            <p className="text-xs text-neutral-500 mt-0.5">Patrimônio: {fmt(patrimony)}</p>
+            <div className="flex items-center gap-2 mb-0.5">
+              <div className="w-4 h-4 rounded-sm" style={{ background: 'linear-gradient(135deg, #544C31, #3D3822)' }} />
+              <p className="text-xs font-semibold tracking-wide uppercase" style={{ color: '#6B6140' }}>Meta patrimonial</p>
+            </div>
+            <p className="text-xs mt-1" style={{ color: '#A8A79E' }}>
+              {fmt(FINAL_GOAL)} até Mai/2027
+            </p>
           </div>
-          <span className="text-2xl font-bold text-olive-900">{progress}%</span>
+          <div className="text-right">
+            <p className="font-display font-bold text-2xl tabular" style={{ color: '#292615' }}>{progress}%</p>
+            <p className="text-xs" style={{ color: '#A8A79E' }}>{fmt(patrimony)}</p>
+          </div>
         </div>
-        <div className="w-full bg-olive-200 rounded-full h-2.5 mb-3">
-          <div className="bg-olive-700 h-2.5 rounded-full transition-all" style={{ width: `${progress}%` }} />
+
+        {/* Main progress */}
+        <div className="progress-bar mb-3">
+          <div className="progress-fill" style={{ width: `${progress}%` }} />
         </div>
+
+        {/* Month goal */}
         {currentGoal && (
-          <div className="border-t border-olive-200 pt-3">
-            <div className="flex justify-between mb-1">
-              <p className="text-xs text-neutral-600">Meta {currentGoal.month}: {fmt(currentGoal.target)}</p>
-              <p className="text-xs font-bold text-olive-800">{monthProgress}%</p>
+          <div className="rounded-xl p-3" style={{ background: '#F8F8F6' }}>
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-xs font-medium" style={{ color: '#6B6A60' }}>
+                Meta {currentGoal.month}: <span style={{ color: '#292615', fontWeight: 600 }}>{fmt(currentGoal.target)}</span>
+              </p>
+              <p className="text-xs font-bold tabular" style={{ color: monthProgress >= 100 ? '#2D7A4F' : '#544C31' }}>
+                {monthProgress}%
+              </p>
             </div>
-            <div className="w-full bg-olive-200 rounded-full h-1.5">
-              <div className={`h-1.5 rounded-full transition-all ${monthProgress >= 100 ? 'bg-green-500' : 'bg-olive-500'}`}
-                style={{ width: `${monthProgress}%` }} />
+            <div className="progress-bar" style={{ height: '4px' }}>
+              <div className="progress-fill" style={{ width: `${monthProgress}%`, background: monthProgress >= 100 ? '#2D7A4F' : undefined }} />
             </div>
-            {monthProgress >= 100 && <p className="text-xs text-green-600 font-bold mt-1">🎉 Meta do mês batida!</p>}
+            {monthProgress >= 100 && (
+              <p className="text-xs font-semibold mt-2" style={{ color: '#2D7A4F' }}>Meta do mês atingida</p>
+            )}
           </div>
         )}
       </div>
