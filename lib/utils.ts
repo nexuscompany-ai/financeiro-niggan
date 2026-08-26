@@ -22,7 +22,7 @@ export const FINAL_GOAL = 30000
 // Categorias de entrada
 export const INCOME_CATEGORIES = [
   'Salário FGL Brasil',
-  'Contratos FGN',
+  'Contratos FGL',
   'TikTok Shop',
   'F7 Empresa',
   'Outras receitas',
@@ -52,7 +52,7 @@ export const INVESTMENT_CATEGORIES = [
 
 export const CATEGORY_EMOJI: Record<string, string> = {
   'Salário FGL Brasil': '💼',
-  'Contratos FGN': '🔧',
+  'Contratos FGL': '🔧',
   'TikTok Shop': '🎵',
   'Dízimo': '🙏',
   'Internet VIVO': '📡',

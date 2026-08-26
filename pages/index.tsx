@@ -6,6 +6,7 @@ import GoalTracker from '@/components/GoalTracker'
 import CreditCard from '@/components/CreditCard'
 import TransactionInput from '@/components/TransactionInput'
 import TransactionsList from '@/components/TransactionsList'
+import SideMenu from '@/components/SideMenu'
 import useFinanceStore from '@/lib/store'
 import Icon from '@/components/Icon'
 import { isWednesday, formatCurrency } from '@/lib/utils'
@@ -15,6 +16,7 @@ export default function Home() {
   const [showTiktok,  setShowTiktok]  = useState(false)
   const [tiktokAmount,setTiktokAmount]= useState('')
   const [hidden,      setHidden]      = useState(false)
+  const [menuOpen,    setMenuOpen]    = useState(false)
   const load           = useFinanceStore(s => s.load)
   const addTransaction = useFinanceStore(s => s.addTransaction)
 
@@ -39,6 +41,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen" style={{ background:'#F8F8F6' }}>
+
       {/* Header */}
       <header className="sticky top-0 z-40 glass" style={{ borderBottom:'1px solid #E5E3D8' }}>
         <div className="px-4 py-3 flex items-center justify-between">
@@ -49,15 +52,17 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <button onClick={()=>setHidden(h=>!h)}
               className="w-9 h-9 rounded-xl flex items-center justify-center pressable transition-all"
-              style={{ background:hidden?'#3D3822':'#F0EFE9' }}
-              title={hidden?'Mostrar valores':'Ocultar valores'}>
+              style={{ background:hidden?'#3D3822':'#F0EFE9' }}>
               <Icon name={hidden?'eye':'eyeOff'} size={16} color={hidden?'#F0D98A':'#857A50'} />
             </button>
-            <Link href="/settings"
-              className="w-9 h-9 rounded-xl flex items-center justify-center pressable"
+            {/* Hamburger — substitui engrenagem */}
+            <button onClick={()=>setMenuOpen(true)}
+              className="w-9 h-9 rounded-xl flex flex-col items-center justify-center gap-1 pressable"
               style={{ background:'#F0EFE9' }}>
-              <Icon name="settings" size={16} color="#857A50" />
-            </Link>
+              <span className="block w-4 h-0.5 rounded-full" style={{ background:'#6B6140' }} />
+              <span className="block w-4 h-0.5 rounded-full" style={{ background:'#6B6140' }} />
+              <span className="block w-3 h-0.5 rounded-full" style={{ background:'#6B6140' }} />
+            </button>
           </div>
         </div>
       </header>
@@ -86,7 +91,6 @@ export default function Home() {
           </Link>
         </div>
 
-        {/* Form */}
         {showInput && (
           <div className="mx-4 mb-3 rounded-2xl overflow-hidden shadow-card animate-slide-up"
             style={{ background:'#fff', border:'1px solid #F0EFE9' }}>
@@ -94,7 +98,6 @@ export default function Home() {
           </div>
         )}
 
-        {/* History header */}
         <div className="px-4 mb-2 mt-2 flex items-center gap-2">
           <div className="w-4 h-4 rounded-sm" style={{ background:'linear-gradient(135deg, #544C31, #3D3822)' }} />
           <p className="text-xs font-semibold tracking-wide uppercase" style={{ color:'#6B6140' }}>Histórico</p>
@@ -103,12 +106,21 @@ export default function Home() {
         <TransactionsList hidden={hidden} />
       </main>
 
+      {/* Settings link — agora no rodapé da página, discreto */}
+      <div className="px-4 pb-6 text-center">
+        <Link href="/settings" className="text-xs pressable" style={{ color:'#C8C5B8' }}>
+          Configurações
+        </Link>
+      </div>
+
+      {/* Side Menu */}
+      <SideMenu open={menuOpen} onClose={()=>setMenuOpen(false)} />
+
       {/* TikTok modal */}
       {showTiktok && (
         <div className="fixed inset-0 z-50 flex items-end" style={{ background:'rgba(0,0,0,0.5)', backdropFilter:'blur(4px)' }}>
           <div className="w-full rounded-t-3xl p-6 animate-slide-up" style={{ background:'#fff' }}>
             <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ background:'#E5E3D8' }} />
-
             <div className="text-center mb-5">
               <div className="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center"
                 style={{ background:'#FDF2F8', border:'1px solid #FBCFE8' }}>
@@ -117,7 +129,6 @@ export default function Home() {
               <h2 className="font-display font-bold text-xl" style={{ color:'#292615' }}>TikTok Shop</h2>
               <p className="text-sm mt-1" style={{ color:'#A8A79E' }}>Quarta-feira! Quanto entrou essa semana?</p>
             </div>
-
             <div className="relative mb-4">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 font-medium text-sm" style={{ color:'#A8A79E' }}>R$</span>
               <input type="number" step="0.01" min="0" value={tiktokAmount}
@@ -126,7 +137,6 @@ export default function Home() {
                 className="w-full pl-10 pr-4 py-4 text-xl font-bold rounded-2xl tabular"
                 style={{ background:'#F8F8F6', border:'1.5px solid #E5E3D8', color:'#292615' }} />
             </div>
-
             <div className="space-y-2">
               <button onClick={handleTiktok}
                 disabled={!tiktokAmount || parseFloat(tiktokAmount)<=0}

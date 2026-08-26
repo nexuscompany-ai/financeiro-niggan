@@ -9,7 +9,7 @@ const PERIOD_LABELS: Record<Period,string> = { month:'Este mês', '7d':'7 dias',
 
 const COFRES = [
   { key:'Salário FGL Brasil',      icon:'briefcase', accent:'#3B82F6', bg:'#EFF6FF', border:'#BFDBFE', textAccent:'#1D4ED8' },
-  { key:'Contratos FGN', icon:'tool',       accent:'#F59E0B', bg:'#FFFBEB', border:'#FDE68A', textAccent:'#92400E' },
+  { key:'Contratos FGL', icon:'tool',       accent:'#F59E0B', bg:'#FFFBEB', border:'#FDE68A', textAccent:'#92400E' },
   { key:'TikTok Shop',             icon:'tiktok',     accent:'#EC4899', bg:'#FDF2F8', border:'#FBCFE8', textAccent:'#9D174D' },
 ]
 
