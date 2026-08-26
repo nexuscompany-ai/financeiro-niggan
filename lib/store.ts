@@ -10,7 +10,7 @@ export interface Transaction {
   description: string
   date: string
   fromCategory?: string
-  creditCard?: string // 'C6' | 'Nubank'
+  creditCard?: string
 }
 
 export interface CreditCardPurchase {
@@ -41,6 +41,8 @@ export interface FinanceState {
   creditCardPurchases: CreditCardPurchase[]
   patrimony: Patrimony[]
   goals: Goal[]
+  syncing: boolean
+  lastSync: string | null
 
   addTransaction: (tx: Omit<Transaction, 'id'>) => void
   updateTransaction: (id: string, updates: Partial<Omit<Transaction, 'id'>>) => void
@@ -59,8 +61,8 @@ export interface FinanceState {
   getTotalPatrimony: () => number
   getCreditCardTotal: (card: 'C6' | 'Nubank') => number
 
-  load: () => void
-  save: (state: any) => void
+  load: () => Promise<void>
+  save: (state: any) => Promise<void>
 }
 
 const INITIAL_PATRIMONY: Patrimony[] = [
@@ -83,8 +85,7 @@ const INITIAL_GOALS: Goal[] = [
   { month: 'Mai/2027', target: 30000, actual: null },
 ]
 
-// Transações do mês atual (Agosto 2026) - dados reais
-const AGOSTO_TRANSACTIONS: Transaction[] = [
+const INITIAL_TRANSACTIONS: Transaction[] = [
   {id:"ago-1",type:"income",category:"Outras receitas",amount:60,description:"PIX Felipe Almeida de Sousa",date:"2026-08-01"},
   {id:"ago-2",type:"income",category:"Outras receitas",amount:75.98,description:"PIX Gabriel Almeida de Sousa",date:"2026-08-01"},
   {id:"ago-3",type:"income",category:"Outras receitas",amount:960.10,description:"PIX Felipe Almeida de Sousa",date:"2026-08-04"},
@@ -92,7 +93,7 @@ const AGOSTO_TRANSACTIONS: Transaction[] = [
   {id:"ago-5",type:"income",category:"Outras receitas",amount:50,description:"PIX Gabriel Almeida de Sousa",date:"2026-08-07"},
   {id:"ago-6",type:"income",category:"TikTok Shop",amount:237.13,description:"Bytedance Brasil - TikTok Shop",date:"2026-08-12"},
   {id:"ago-7",type:"income",category:"Outras receitas",amount:100,description:"PIX Felipe Almeida de Sousa",date:"2026-08-14"},
-  {id:"ago-8",type:"income",category:"Contratos / Instalações",amount:893.06,description:"Contrato / Instalação FGL",date:"2026-08-17"},
+  {id:"ago-8",type:"income",category:"F7 Empresa",amount:893.06,description:"Contrato F7",date:"2026-08-17"},
   {id:"ago-9",type:"income",category:"TikTok Shop",amount:386.80,description:"Bytedance Brasil - TikTok Shop",date:"2026-08-19"},
   {id:"ago-10",type:"income",category:"Outras receitas",amount:568.58,description:"PIX Felipe Almeida de Sousa",date:"2026-08-19"},
   {id:"ago-11",type:"expense",category:"Combustível",amount:151.96,description:"Posto Portal Estrela D Barueri",date:"2026-08-01"},
@@ -111,14 +112,13 @@ const AGOSTO_TRANSACTIONS: Transaction[] = [
   {id:"ago-24",type:"expense",category:"Lazer",amount:20,description:"Festpay Payments São Paulo",date:"2026-08-15"},
   {id:"ago-25",type:"expense",category:"Outras despesas",amount:65,description:"PIX Julia Marques Pereira Lima",date:"2026-08-17"},
   {id:"ago-26",type:"expense",category:"Alimentação",amount:19,description:"Café Yeshua Barueri",date:"2026-08-17"},
-  {id:"ago-27",type:"investment",category:"CDB / Reserva",amount:540,description:"CDB C6 Lim. Garant.",date:"2026-08-17",fromCategory:"Contratos / Instalações"},
+  {id:"ago-27",type:"investment",category:"CDB / Reserva",amount:540,description:"CDB C6 Lim. Garant.",date:"2026-08-17",fromCategory:"F7 Empresa"},
   {id:"ago-28",type:"expense",category:"Outras despesas",amount:95,description:"PIX Gabriel Almeida de Sousa",date:"2026-08-18"},
   {id:"ago-29",type:"investment",category:"CDB / Reserva",amount:468,description:"CDB C6 Lim. Garant.",date:"2026-08-19",fromCategory:"Outras receitas"},
 ]
 
-// Cartões de crédito iniciais
 const INITIAL_CC: CreditCardPurchase[] = [
-  {id:"cc-1",card:"C6",description:"Fatura C6 (saldo atual)",totalAmount:310.64,installments:1,currentInstallment:1,monthlyAmount:310.64,startDate:"2026-08-01",category:"Cartão de Crédito"},
+  {id:"cc-1",card:"C6",description:"Fatura C6 atual",totalAmount:310.64,installments:1,currentInstallment:1,monthlyAmount:310.64,startDate:"2026-08-01",category:"Cartão de Crédito"},
 ]
 
 function startOfMonth(): string {
@@ -128,36 +128,103 @@ function daysAgo(n: number): string {
   const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().split('T')[0]
 }
 
+// Helpers para sync com Supabase
+async function fetchFromSupabase() {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (!url || !key) return null
+
+    const res = await fetch(`${url}/rest/v1/niggan_data?id=eq.main&select=data`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` }
+    })
+    if (!res.ok) return null
+    const rows = await res.json()
+    return rows?.[0]?.data || null
+  } catch { return null }
+}
+
+async function pushToSupabase(data: any) {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (!url || !key) return
+
+    await fetch(`${url}/rest/v1/niggan_data?id=eq.main`, {
+      method: 'PATCH',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({ data, updated_at: new Date().toISOString() })
+    })
+  } catch {}
+}
+
 const useFinanceStore = create<FinanceState>()((set, get) => ({
   transactions: [],
   creditCardPurchases: [],
   patrimony: INITIAL_PATRIMONY,
   goals: INITIAL_GOALS,
+  syncing: false,
+  lastSync: null,
 
-  load: () => {
+  load: async () => {
     if (typeof window === 'undefined') return
+    set({ syncing: true })
+
+    // 1. Tentar Supabase primeiro (dados ao vivo)
+    const remote = await fetchFromSupabase()
+    if (remote && remote.transactions) {
+      set({
+        transactions: remote.transactions ?? INITIAL_TRANSACTIONS,
+        creditCardPurchases: remote.creditCardPurchases ?? INITIAL_CC,
+        patrimony: remote.patrimony ?? INITIAL_PATRIMONY,
+        goals: remote.goals ?? INITIAL_GOALS,
+        syncing: false,
+        lastSync: new Date().toISOString(),
+      })
+      // Salva também no localStorage como cache
+      localStorage.setItem('niggan-cache', JSON.stringify(remote))
+      return
+    }
+
+    // 2. Fallback: localStorage
     try {
-      const raw = localStorage.getItem('niggan-v5')
-      if (raw) {
-        const data = JSON.parse(raw)
+      const cached = localStorage.getItem('niggan-cache')
+      if (cached) {
+        const data = JSON.parse(cached)
         set({
-          transactions: data.transactions ?? AGOSTO_TRANSACTIONS,
+          transactions: data.transactions ?? INITIAL_TRANSACTIONS,
           creditCardPurchases: data.creditCardPurchases ?? INITIAL_CC,
           patrimony: data.patrimony ?? INITIAL_PATRIMONY,
           goals: data.goals ?? INITIAL_GOALS,
+          syncing: false,
         })
-      } else {
-        set({ transactions: AGOSTO_TRANSACTIONS, creditCardPurchases: INITIAL_CC, patrimony: INITIAL_PATRIMONY, goals: INITIAL_GOALS })
-        get().save({ transactions: AGOSTO_TRANSACTIONS, creditCardPurchases: INITIAL_CC, patrimony: INITIAL_PATRIMONY, goals: INITIAL_GOALS })
+        return
       }
-    } catch {
-      set({ transactions: AGOSTO_TRANSACTIONS, creditCardPurchases: INITIAL_CC, patrimony: INITIAL_PATRIMONY, goals: INITIAL_GOALS })
+    } catch {}
+
+    // 3. Dados iniciais
+    const initial = {
+      transactions: INITIAL_TRANSACTIONS,
+      creditCardPurchases: INITIAL_CC,
+      patrimony: INITIAL_PATRIMONY,
+      goals: INITIAL_GOALS,
     }
+    set({ ...initial, syncing: false })
+    await pushToSupabase(initial)
+    localStorage.setItem('niggan-cache', JSON.stringify(initial))
   },
 
-  save: (data) => {
+  save: async (data) => {
     if (typeof window === 'undefined') return
-    try { localStorage.setItem('niggan-v5', JSON.stringify(data)) } catch {}
+    // Salva local imediato (UX rápida)
+    localStorage.setItem('niggan-cache', JSON.stringify(data))
+    // Sync Supabase em background
+    pushToSupabase(data)
   },
 
   addTransaction: (tx) => {
@@ -232,11 +299,8 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
 
   getTotalPatrimony: () => get().patrimony.reduce((s,p) => s + p.balance, 0),
 
-  getCreditCardTotal: (card) => {
-    return get().creditCardPurchases
-      .filter(p => p.card === card)
-      .reduce((s,p) => s + p.monthlyAmount, 0)
-  },
+  getCreditCardTotal: (card) =>
+    get().creditCardPurchases.filter(p => p.card === card).reduce((s,p) => s + p.monthlyAmount, 0),
 
   getToday: () => {
     const today = new Date().toISOString().split('T')[0]
@@ -285,8 +349,8 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
     const total = expenses.reduce((s,t)=>s+t.amount,0)
     const now = new Date()
     const daysGone = now.getDate()
-    const dailyAverage = daysGone > 0 ? total / daysGone : 0
     const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate()
+    const dailyAverage = daysGone > 0 ? total / daysGone : 0
     const byCategory: Record<string,number> = {}
     expenses.forEach(t => { byCategory[t.category] = (byCategory[t.category]||0) + t.amount })
     const mostSpentCategory = Object.entries(byCategory).sort(([,a],[,b])=>b-a)[0]?.[0] ?? '-'
