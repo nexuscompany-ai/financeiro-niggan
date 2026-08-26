@@ -100,8 +100,8 @@ export default function SideMenu({ open, onClose }: Props) {
   const totalNu = getCreditCardTotal('Nubank')
   const totalCC = totalC6 + totalNu
 
-  const ccByCard = (card: 'C6' | 'Nubank') =>
-    (creditCardPurchases || []).filter(p => p.card === card && isActiveInMonth(p, monthOff))
+  const ccByCard = (card: 'C6' | 'Nubank', offset = 0) =>
+    (creditCardPurchases || []).filter(p => p.card === card && isActiveInMonth(p, offset))
 
   const saveCC = () => {
     const total = parseFloat(ccForm.totalAmount.replace(',', '.'))
