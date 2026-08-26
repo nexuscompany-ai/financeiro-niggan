@@ -1,4 +1,5 @@
 @tailwind base;
+/* Fontes carregadas via Head no _app.tsx */
 @tailwind components;
 @tailwind utilities;
 
