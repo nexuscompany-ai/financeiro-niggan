@@ -1,19 +1,11 @@
 import { useState } from 'react'
 import useFinanceStore from '@/lib/store'
 import { Transaction } from '@/lib/store'
-import { formatCurrency, formatDate, CATEGORY_EMOJI, INCOME_CATEGORIES, EXPENSE_CATEGORIES, INVESTMENT_CATEGORIES } from '@/lib/utils'
+import { formatCurrency, formatDate, INCOME_CATEGORIES, EXPENSE_CATEGORIES, INVESTMENT_CATEGORIES } from '@/lib/utils'
+import Icon, { CATEGORY_ICON } from './Icon'
 
 type FilterType = 'month'|'today'|'7days'|'income'|'expense'|'investment'|'all'
 const ALL_CATS = [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES, ...INVESTMENT_CATEGORIES, 'Imprevistos']
-
-const TYPE_ICON: Record<string, string> = {
-  'Salário FGL Brasil': '💼', 'Contratos / Instalações': '🔧', 'TikTok Shop': '🎵',
-  'F7 Empresa': '🏢', 'Outras receitas': '💰', 'Dízimo': '🙏', 'Internet VIVO': '📡',
-  'Combustível': '⛽', 'Cartão de Crédito': '💳', 'Corte Cabelo': '✂️', 'Assinaturas': '📱',
-  'Lazer': '🎮', 'Presentes': '🎁', 'Alimentação': '🍔', 'Compras pessoais': '🛍️',
-  'Equipamentos / Trabalho': '🛠️', 'Imprevistos': '⚡', 'Saúde': '⚕️', 'Outras despesas': '📦',
-  'CDB / Reserva': '📈', 'Aporte extra': '💎',
-}
 
 export default function TransactionsList({ hidden = false }: { hidden?: boolean }) {
   const transactions = useFinanceStore(s => s.transactions)
@@ -26,7 +18,7 @@ export default function TransactionsList({ hidden = false }: { hidden?: boolean 
   const [expandedId, setExpandedId] = useState<string|null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string|null>(null)
 
-  const fmt = (v: number) => hidden ? '•••' : formatCurrency(v)
+  const fmt = (v: number) => hidden ? '•••••' : formatCurrency(v)
 
   const today = new Date().toISOString().split('T')[0]
   const sevenAgo = (() => { const d=new Date(); d.setDate(d.getDate()-7); return d.toISOString().split('T')[0] })()
@@ -59,7 +51,8 @@ export default function TransactionsList({ hidden = false }: { hidden?: boolean 
   }
 
   const typeColor = (t: string) => t==='income'?'#2D7A4F':t==='investment'?'#2563EB':'#C0392B'
-  const typeBg = (t: string) => t==='income'?'#EBF7F0':t==='investment'?'#EFF6FF':'#FCECEA'
+  const typeBg   = (t: string) => t==='income'?'#EBF7F0':t==='investment'?'#EFF6FF':'#FCECEA'
+  const typeSign  = (t: string) => t==='income'?'+':t==='investment'?'↗':'-'
 
   const FILTERS: { key: FilterType; label: string }[] = [
     { key:'month', label:'Este mês' },
@@ -71,7 +64,7 @@ export default function TransactionsList({ hidden = false }: { hidden?: boolean 
     { key:'all', label:'Histórico' },
   ]
 
-  const totalIncome = filtered.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0)
+  const totalIncome  = filtered.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0)
   const totalExpense = filtered.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0)
 
   return (
@@ -89,52 +82,50 @@ export default function TransactionsList({ hidden = false }: { hidden?: boolean 
         ))}
       </div>
 
-      {/* Summary row */}
+      {/* Summary */}
       {filtered.length > 0 && (
         <div className="px-4 mb-3 flex items-center gap-4">
-          {totalIncome > 0 && <p className="text-xs font-semibold tabular" style={{ color:'#2D7A4F' }}>↓ {fmt(totalIncome)}</p>}
-          {totalExpense > 0 && <p className="text-xs font-semibold tabular" style={{ color:'#C0392B' }}>↑ {fmt(totalExpense)}</p>}
+          {totalIncome > 0 && <p className="text-xs font-semibold tabular" style={{ color:'#2D7A4F' }}>+{fmt(totalIncome)}</p>}
+          {totalExpense > 0 && <p className="text-xs font-semibold tabular" style={{ color:'#C0392B' }}>-{fmt(totalExpense)}</p>}
           <p className="text-xs" style={{ color:'#C8C5B8' }}>{filtered.length} transações</p>
         </div>
       )}
 
-      {/* List */}
       <div className="px-4 pb-32">
         {filtered.length === 0 ? (
           <div className="py-16 text-center">
             <div className="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{ background:'#F0EFE9' }}>
-              <span className="text-2xl">📭</span>
+              <Icon name="inbox" size={22} color="#A8A79E" />
             </div>
             <p className="text-sm font-medium" style={{ color:'#A8A79E' }}>Nenhuma transação</p>
             {filter !== 'all' && (
-              <button onClick={() => setFilter('all')} className="mt-2 text-xs font-semibold pressable" style={{ color:'#6B6140' }}>
-                Ver histórico completo →
+              <button onClick={()=>setFilter('all')} className="mt-2 text-xs font-semibold pressable" style={{ color:'#6B6140' }}>
+                Ver histórico completo
               </button>
             )}
           </div>
         ) : sortedDates.map(date => (
           <div key={date} className="mb-5">
-            {/* Date header */}
             <div className="flex items-center gap-3 mb-2">
               <p className="text-xs font-semibold" style={{ color:'#A8A79E' }}>{formatDate(date)}</p>
               <div className="flex-1 h-px" style={{ background:'#F0EFE9' }} />
               <p className="text-xs font-semibold tabular" style={{ color:'#C8C5B8' }}>
-                {fmt(grouped[date].reduce((s,t) => t.type==='income'?s+t.amount:s-t.amount, 0))}
+                {fmt(grouped[date].reduce((s,t)=>t.type==='income'?s+t.amount:s-t.amount,0))}
               </p>
             </div>
 
             <div className="space-y-2">
               {grouped[date].map(tx => (
                 <div key={tx.id} className="rounded-2xl overflow-hidden shadow-card" style={{ background:'#fff', border:'1px solid #F0EFE9' }}>
-                  {editingId === tx.id ? (
+                  {editingId===tx.id ? (
                     <div className="p-4 space-y-2.5">
-                      <p className="text-xs font-semibold" style={{ color:'#6B6140' }}>Editando transação</p>
+                      <p className="text-xs font-semibold" style={{ color:'#6B6140' }}>Editando</p>
                       <div className="flex gap-2">
                         {(['expense','income','investment'] as const).map(tp => (
                           <button key={tp} type="button" onClick={()=>setEditData(d=>({...d,type:tp}))}
                             className="flex-1 py-2 rounded-xl text-xs font-semibold transition-all pressable"
                             style={editData.type===tp
-                              ? { background: tp==='income'?'#2D7A4F':tp==='investment'?'#2563EB':'#C0392B', color:'#fff' }
+                              ? { background:tp==='income'?'#2D7A4F':tp==='investment'?'#2563EB':'#C0392B', color:'#fff' }
                               : { background:'#F0EFE9', color:'#857A50' }}>
                             {tp==='income'?'Entrada':tp==='investment'?'Invest.':'Saída'}
                           </button>
@@ -144,20 +135,19 @@ export default function TransactionsList({ hidden = false }: { hidden?: boolean 
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm" style={{ color:'#A8A79E' }}>R$</span>
                         <input type="number" step="0.01" min="0" value={editData.amount||''}
                           onChange={e=>setEditData(d=>({...d,amount:parseFloat(e.target.value)}))}
-                          className="w-full pl-10 pr-4 py-3 rounded-xl text-sm font-bold outline-none"
+                          className="w-full pl-10 pr-4 py-3 rounded-xl text-sm font-bold"
                           style={{ background:'#F8F8F6', border:'1.5px solid #E5E3D8' }} inputMode="decimal" />
                       </div>
                       <select value={editData.category} onChange={e=>setEditData(d=>({...d,category:e.target.value}))}
-                        className="w-full px-4 py-3 rounded-xl text-sm outline-none cursor-pointer"
+                        className="w-full px-4 py-3 rounded-xl text-sm cursor-pointer"
                         style={{ background:'#F8F8F6', border:'1.5px solid #E5E3D8' }}>
                         {ALL_CATS.map(c=><option key={c}>{c}</option>)}
                       </select>
                       <input type="text" value={editData.description||''} onChange={e=>setEditData(d=>({...d,description:e.target.value}))}
-                        placeholder="Descrição"
-                        className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                        placeholder="Descrição" className="w-full px-4 py-3 rounded-xl text-sm"
                         style={{ background:'#F8F8F6', border:'1.5px solid #E5E3D8' }} />
                       <input type="date" value={editData.date||''} onChange={e=>setEditData(d=>({...d,date:e.target.value}))}
-                        className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                        className="w-full px-4 py-3 rounded-xl text-sm"
                         style={{ background:'#F8F8F6', border:'1.5px solid #E5E3D8' }} />
                       <div className="flex gap-2">
                         <button onClick={()=>{setEditingId(null);setEditData({})}}
@@ -171,29 +161,27 @@ export default function TransactionsList({ hidden = false }: { hidden?: boolean 
                   ) : (
                     <>
                       <div onClick={()=>setExpandedId(expandedId===tx.id?null:tx.id)} className="flex items-center gap-3 p-3.5 cursor-pointer pressable">
-                        {/* Icon */}
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-lg"
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                           style={{ background: typeBg(tx.type) }}>
-                          {TYPE_ICON[tx.category] || (tx.type==='income'?'💰':tx.type==='investment'?'📈':'💸')}
+                          <Icon name={CATEGORY_ICON[tx.category] || (tx.type==='income'?'coins':tx.type==='investment'?'invest':'package')}
+                            size={18} color={typeColor(tx.type)} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold truncate" style={{ color:'#1A1A14' }}>{tx.description}</p>
-                          <p className="text-xs truncate mt-0.5" style={{ color:'#A8A79E' }}>
-                            {tx.category}
-                            {tx.fromCategory && <span style={{ color:'#C8C5B8' }}> · do cofre {tx.fromCategory}</span>}
-                          </p>
+                          <p className="text-xs truncate mt-0.5" style={{ color:'#A8A79E' }}>{tx.category}</p>
                         </div>
-                        <p className="text-sm font-bold tabular flex-shrink-0" style={{ color: typeColor(tx.type) }}>
-                          {tx.type==='income'?'+':tx.type==='investment'?'↗':'-'}{fmt(tx.amount)}
+                        <p className="text-sm font-bold tabular flex-shrink-0" style={{ color:typeColor(tx.type) }}>
+                          {typeSign(tx.type)}{fmt(tx.amount)}
                         </p>
                       </div>
-
-                      {expandedId === tx.id && (
+                      {expandedId===tx.id && (
                         <div className="flex gap-2 px-3.5 pb-3">
                           <button onClick={()=>startEdit(tx)}
-                            className="flex-1 py-2 rounded-xl text-xs font-semibold pressable"
-                            style={{ background:'#F0EFE9', color:'#544C31' }}>Editar</button>
-                          {confirmDelete === tx.id ? (
+                            className="flex-1 py-2 rounded-xl text-xs font-semibold pressable flex items-center justify-center gap-1.5"
+                            style={{ background:'#F0EFE9', color:'#544C31' }}>
+                            <Icon name="edit" size={13} color="#544C31" /> Editar
+                          </button>
+                          {confirmDelete===tx.id ? (
                             <>
                               <button onClick={()=>{removeTransaction(tx.id);setExpandedId(null);setConfirmDelete(null)}}
                                 className="flex-1 py-2 rounded-xl text-xs font-semibold pressable"
@@ -204,8 +192,10 @@ export default function TransactionsList({ hidden = false }: { hidden?: boolean 
                             </>
                           ) : (
                             <button onClick={()=>setConfirmDelete(tx.id)}
-                              className="flex-1 py-2 rounded-xl text-xs font-semibold pressable"
-                              style={{ background:'#FCECEA', color:'#C0392B' }}>Deletar</button>
+                              className="flex-1 py-2 rounded-xl text-xs font-semibold pressable flex items-center justify-center gap-1.5"
+                              style={{ background:'#FCECEA', color:'#C0392B' }}>
+                              <Icon name="trash" size={13} color="#C0392B" /> Deletar
+                            </button>
                           )}
                         </div>
                       )}

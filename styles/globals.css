@@ -184,3 +184,11 @@ input, select, textarea { font-family: inherit; font-size: 16px; }
   transform: scale(0.97);
   opacity: 0.85;
 }
+
+/* Bloquear zoom via touch */
+* { touch-action: pan-x pan-y; }
+html { touch-action: pan-x pan-y; }
+
+/* Remover outline padrão */
+*:focus { outline: none; }
+*:focus-visible { outline: 2px solid #6B6140; outline-offset: 2px; }
