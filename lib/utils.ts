@@ -24,6 +24,7 @@ export const INCOME_CATEGORIES = [
   'Salário FGL Brasil',
   'Contratos FGN',
   'TikTok Shop',
+  'F7 Empresa',
   'Outras receitas',
 ]
 
