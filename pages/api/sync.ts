@@ -1,51 +1,75 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SUPABASE_KEY = process.env.NEXT_PUBLIC_ANON_KEY_SUPA
+// Tenta com e sem prefixo NEXT_PUBLIC_
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_ANON_KEY_SUPA || process.env.ANON_KEY_SUPA
 
-async function supabaseRequest(method: string, body?: any) {
+async function supabaseGet() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/niggan_data?id=eq.main&select=data`, {
+    headers: {
+      apikey: SUPABASE_KEY!,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+    }
+  })
+  return res
+}
+
+async function supabasePatch(data: any) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/niggan_data?id=eq.main`, {
-    method,
+    method: 'PATCH',
     headers: {
       apikey: SUPABASE_KEY!,
       Authorization: `Bearer ${SUPABASE_KEY}`,
       'Content-Type': 'application/json',
       Prefer: 'return=representation',
     },
-    ...(body ? { body: JSON.stringify(body) } : {}),
+    body: JSON.stringify({ data, updated_at: new Date().toISOString() })
+  })
+  return res
+}
+
+async function supabaseInsert(data: any) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/niggan_data`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_KEY!,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({ id: 'main', data, updated_at: new Date().toISOString() })
   })
   return res
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!SUPABASE_URL || !SUPABASE_KEY) {
-    return res.status(500).json({ error: 'Supabase não configurado', SUPABASE_URL: !!SUPABASE_URL, SUPABASE_KEY: !!SUPABASE_KEY })
+    return res.status(500).json({
+      error: 'Supabase não configurado',
+      vars: {
+        SUPABASE_URL: !!process.env.SUPABASE_URL,
+        NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
+        NEXT_PUBLIC_ANON_KEY_SUPA: !!process.env.NEXT_PUBLIC_ANON_KEY_SUPA,
+        ANON_KEY_SUPA: !!process.env.ANON_KEY_SUPA,
+      }
+    })
   }
 
   // GET - buscar dados
   if (req.method === 'GET') {
     try {
-      const response = await supabaseRequest('GET')
-      const rows = await response.json()
+      const getRes = await supabaseGet()
+      const rows = await getRes.json()
 
-      if (!response.ok) {
+      if (!getRes.ok) {
         return res.status(500).json({ error: 'Erro ao buscar', details: rows })
       }
 
-      // Se não tem dados, cria o registro
       if (!rows || rows.length === 0) {
-        const createRes = await fetch(`${SUPABASE_URL}/rest/v1/niggan_data`, {
-          method: 'POST',
-          headers: {
-            apikey: SUPABASE_KEY!,
-            Authorization: `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            Prefer: 'return=representation',
-          },
-          body: JSON.stringify({ id: 'main', data: {} }),
-        })
-        const created = await createRes.json()
-        return res.status(200).json({ data: null, created: true })
+        // Registro não existe, cria
+        await supabaseInsert({})
+        return res.status(200).json({ data: null })
       }
 
       return res.status(200).json({ data: rows[0]?.data || null })
@@ -60,33 +84,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { data } = req.body
       if (!data) return res.status(400).json({ error: 'Sem dados' })
 
-      // Tenta PATCH primeiro
-      const patchRes = await supabaseRequest('PATCH', { data, updated_at: new Date().toISOString() })
+      // Tenta atualizar
+      const patchRes = await supabasePatch(data)
+      const patchRows = await patchRes.json()
 
-      if (!patchRes.ok) {
-        const patchErr = await patchRes.json()
-        return res.status(500).json({ error: 'Erro ao salvar', details: patchErr })
+      // Se não atualizou nenhuma linha, insere
+      if (!patchRows || patchRows.length === 0) {
+        await supabaseInsert(data)
+        return res.status(200).json({ ok: true, action: 'inserted' })
       }
 
-      const rows = await patchRes.json()
-
-      // Se PATCH não atualizou nada, faz INSERT
-      if (!rows || rows.length === 0) {
-        const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/niggan_data`, {
-          method: 'POST',
-          headers: {
-            apikey: SUPABASE_KEY!,
-            Authorization: `Bearer ${SUPABASE_KEY}`,
-            'Content-Type': 'application/json',
-            Prefer: 'return=representation',
-          },
-          body: JSON.stringify({ id: 'main', data, updated_at: new Date().toISOString() }),
-        })
-        const inserted = await insertRes.json()
-        return res.status(200).json({ ok: true, inserted: true })
-      }
-
-      return res.status(200).json({ ok: true, updated: true })
+      return res.status(200).json({ ok: true, action: 'updated' })
     } catch (err) {
       return res.status(500).json({ error: String(err) })
     }
