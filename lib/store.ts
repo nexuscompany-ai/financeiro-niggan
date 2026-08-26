@@ -129,40 +129,22 @@ function daysAgo(n: number): string {
   const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().split('T')[0]
 }
 
-// ✅ Usando ANON_KEY_SUPA como nome da variável
-async function fetchFromSupabase() {
+// Usa API route server-side (mais confiável que chamar Supabase direto do browser)
+async function fetchData() {
   try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key = process.env.NEXT_PUBLIC_ANON_KEY_SUPA
-    if (!url || !key) return null
-
-    const res = await fetch(`${url}/rest/v1/niggan_data?id=eq.main&select=data`, {
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-      }
-    })
+    const res = await fetch('/api/sync')
     if (!res.ok) return null
-    const rows = await res.json()
-    return rows?.[0]?.data || null
+    const json = await res.json()
+    return json.data || null
   } catch { return null }
 }
 
-async function pushToSupabase(data: any) {
+async function saveData(data: any) {
   try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key = process.env.NEXT_PUBLIC_ANON_KEY_SUPA
-    if (!url || !key) return
-
-    await fetch(`${url}/rest/v1/niggan_data?id=eq.main`, {
-      method: 'PATCH',
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json',
-        Prefer: 'return=minimal',
-      },
-      body: JSON.stringify({ data, updated_at: new Date().toISOString() })
+    await fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data }),
     })
   } catch {}
 }
@@ -179,38 +161,44 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
     if (typeof window === 'undefined') return
     set({ syncing: true })
 
-    // 1. Supabase (tempo real)
-    const remote = await fetchFromSupabase()
-    if (remote && remote.transactions) {
+    // 1. Tenta buscar do servidor (Supabase via API route)
+    const remote = await fetchData()
+
+    if (remote && remote.transactions && remote.transactions.length > 0) {
       set({
-        transactions: remote.transactions ?? INITIAL_TRANSACTIONS,
+        transactions: remote.transactions,
         creditCardPurchases: remote.creditCardPurchases ?? INITIAL_CC,
         patrimony: remote.patrimony ?? INITIAL_PATRIMONY,
         goals: remote.goals ?? INITIAL_GOALS,
         syncing: false,
         lastSync: new Date().toISOString(),
       })
+      // Cache local para offline
       localStorage.setItem('niggan-cache', JSON.stringify(remote))
       return
     }
 
-    // 2. Cache local
+    // 2. Fallback: cache local
     try {
       const cached = localStorage.getItem('niggan-cache')
       if (cached) {
         const data = JSON.parse(cached)
-        set({
-          transactions: data.transactions ?? INITIAL_TRANSACTIONS,
-          creditCardPurchases: data.creditCardPurchases ?? INITIAL_CC,
-          patrimony: data.patrimony ?? INITIAL_PATRIMONY,
-          goals: data.goals ?? INITIAL_GOALS,
-          syncing: false,
-        })
-        return
+        if (data.transactions && data.transactions.length > 0) {
+          set({
+            transactions: data.transactions,
+            creditCardPurchases: data.creditCardPurchases ?? INITIAL_CC,
+            patrimony: data.patrimony ?? INITIAL_PATRIMONY,
+            goals: data.goals ?? INITIAL_GOALS,
+            syncing: false,
+          })
+          // Sobe para o servidor
+          await saveData(data)
+          return
+        }
       }
     } catch {}
 
-    // 3. Dados iniciais
+    // 3. Dados iniciais do código
     const initial = {
       transactions: INITIAL_TRANSACTIONS,
       creditCardPurchases: INITIAL_CC,
@@ -218,14 +206,16 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
       goals: INITIAL_GOALS,
     }
     set({ ...initial, syncing: false })
-    await pushToSupabase(initial)
     localStorage.setItem('niggan-cache', JSON.stringify(initial))
+    await saveData(initial)
   },
 
   save: async (data) => {
     if (typeof window === 'undefined') return
+    // 1. Salva local imediato (UX rápida)
     localStorage.setItem('niggan-cache', JSON.stringify(data))
-    pushToSupabase(data)
+    // 2. Sobe para servidor em background
+    saveData(data)
   },
 
   addTransaction: (tx) => {
