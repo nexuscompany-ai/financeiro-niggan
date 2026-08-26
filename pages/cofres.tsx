@@ -8,9 +8,10 @@ type Period = 'month'|'7d'|'90d'|'all'
 const PERIOD_LABELS: Record<Period,string> = { month:'Este mês', '7d':'7 dias', '90d':'90 dias', all:'Histórico' }
 
 const COFRES = [
-  { key:'Salário FGL Brasil',      icon:'briefcase', accent:'#3B82F6', bg:'#EFF6FF', border:'#BFDBFE', textAccent:'#1D4ED8' },
-  { key:'Contratos FGL', icon:'tool',       accent:'#F59E0B', bg:'#FFFBEB', border:'#FDE68A', textAccent:'#92400E' },
-  { key:'TikTok Shop',             icon:'tiktok',     accent:'#EC4899', bg:'#FDF2F8', border:'#FBCFE8', textAccent:'#9D174D' },
+  { key:'Salário FGL Brasil', icon:'briefcase', accent:'#3B82F6', bg:'#EFF6FF', border:'#BFDBFE', textAccent:'#1D4ED8' },
+  { key:'Contratos FGL',      icon:'tool',      accent:'#F59E0B', bg:'#FFFBEB', border:'#FDE68A', textAccent:'#92400E' },
+  { key:'TikTok Shop',         icon:'tiktok',    accent:'#EC4899', bg:'#FDF2F8', border:'#FBCFE8', textAccent:'#9D174D' },
+  { key:'F7 Empresa',          icon:'building',  accent:'#8B5CF6', bg:'#F5F3FF', border:'#DDD6FE', textAccent:'#5B21B6' },
 ]
 
 function getStartDate(p: Period): string {
@@ -29,11 +30,22 @@ export default function Cofres() {
 
   const getPeriod = (k: string): Period => periods[k] || 'month'
   const setPeriod = (k: string, p: Period) => setPeriods(prev=>({...prev,[k]:p}))
-  const fmt       = (v: number) => hidden ? '•••••' : formatCurrency(v)
+  const fmt = (v: number) => hidden ? '•••••' : formatCurrency(v)
 
-  const startOfMonth = new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString().split('T')[0]
-  const totalGeralMes = transactions.filter(t=>t.type==='income'&&t.date>=startOfMonth).reduce((s,t)=>s+t.amount,0)
-  const totalInvestMes = transactions.filter(t=>t.type==='investment'&&t.date>=startOfMonth).reduce((s,t)=>s+t.amount,0)
+  const now = new Date()
+  const startOfMonth = new Date(now.getFullYear(),now.getMonth(),1).toISOString().split('T')[0]
+
+  // Total geral do mês (todas as categorias)
+  const totalGeralMes = transactions
+    .filter(t=>t.type==='income'&&t.date>=startOfMonth)
+    .reduce((s,t)=>s+t.amount,0)
+
+  // Dízimo = 10% do total geral
+  const dizimo = totalGeralMes * 0.10
+
+  const totalInvestMes = transactions
+    .filter(t=>t.type==='investment'&&t.date>=startOfMonth)
+    .reduce((s,t)=>s+t.amount,0)
 
   const cofresData = useMemo(()=>COFRES.map(c=>{
     const period = getPeriod(c.key)
@@ -47,7 +59,6 @@ export default function Cofres() {
     return { ...c, incomes, investments, totalIncome, totalInvest, pct, period }
   }),[transactions,periods])
 
-  const now = new Date()
   const monthName = now.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})
 
   return (
@@ -56,8 +67,7 @@ export default function Cofres() {
       <header className="sticky top-0 z-40 glass" style={{ borderBottom:'1px solid #E5E3D8' }}>
         <div className="px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/" className="w-8 h-8 rounded-xl flex items-center justify-center pressable"
-              style={{ background:'#F0EFE9' }}>
+            <Link href="/" className="w-8 h-8 rounded-xl flex items-center justify-center pressable" style={{ background:'#F0EFE9' }}>
               <Icon name="back" size={16} color="#6B6140" />
             </Link>
             <div>
@@ -91,7 +101,7 @@ export default function Cofres() {
                 <p className="font-display font-bold text-3xl text-white tracking-tight mt-1">
                   {hidden ? '••••••' : formatCurrency(totalGeralMes)}
                 </p>
-                <p className="text-xs mt-1.5" style={{ color:'#6B6140' }}>
+                <p className="text-xs mt-1" style={{ color:'#6B6140' }}>
                   {transactions.filter(t=>t.type==='income'&&t.date>=startOfMonth).length} entradas em {now.toLocaleDateString('pt-BR',{month:'long'})}
                 </p>
               </div>
@@ -103,16 +113,33 @@ export default function Cofres() {
               </div>
             </div>
 
+            {/* Dízimo card */}
+            <div className="rounded-2xl p-3 mb-4" style={{ background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.08)' }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background:'rgba(201,168,76,0.15)' }}>
+                    <Icon name="heart" size={12} color="#C9A84C" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold" style={{ color:'#C9A84C' }}>Dízimo sugerido</p>
+                    <p className="text-xs" style={{ color:'#6B6140' }}>10% do total recebido este mês</p>
+                  </div>
+                </div>
+                <p className="font-display font-bold text-lg tabular" style={{ color:'#C9A84C' }}>
+                  {hidden ? '•••••' : formatCurrency(dizimo)}
+                </p>
+              </div>
+            </div>
+
             {/* Mini bars */}
             <div className="space-y-2">
-              {cofresData.map(c => (
+              {cofresData.map(c=>(
                 <div key={c.key} className="flex items-center gap-3">
-                  <div className="w-24 flex-shrink-0">
+                  <div className="w-20 flex-shrink-0">
                     <p className="text-xs truncate" style={{ color:'#6B6140' }}>{c.key.split(' ')[0]}</p>
                   </div>
                   <div className="flex-1 h-1.5 rounded-full" style={{ background:'rgba(255,255,255,0.06)' }}>
-                    <div className="h-1.5 rounded-full transition-all duration-700"
-                      style={{ width:`${c.pct}%`, background:c.accent }} />
+                    <div className="h-1.5 rounded-full transition-all duration-700" style={{ width:`${c.pct}%`, background:c.accent }} />
                   </div>
                   <p className="text-xs tabular w-8 text-right" style={{ color:'#857A50' }}>{c.pct}%</p>
                 </div>
@@ -123,9 +150,8 @@ export default function Cofres() {
 
         {/* Cofres list */}
         <div className="px-4 space-y-3">
-          {cofresData.map(({ key, icon, accent, bg, border, textAccent, incomes, investments, totalIncome, totalInvest, pct, period }) => {
+          {cofresData.map(({ key, icon, accent, bg, border, textAccent, incomes, investments, totalIncome, totalInvest, pct, period })=>{
             const isOpen = expanded===key
-
             return (
               <div key={key} className="rounded-2xl overflow-hidden shadow-card" style={{ background:'#fff', border:'1px solid #F0EFE9' }}>
                 {/* Header */}
@@ -144,22 +170,15 @@ export default function Cofres() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-display font-bold text-lg tabular" style={{ color:'#1A1A14' }}>
-                        {fmt(totalIncome)}
-                      </p>
+                      <p className="font-display font-bold text-lg tabular" style={{ color:'#1A1A14' }}>{fmt(totalIncome)}</p>
                       {totalInvest>0 && (
-                        <p className="text-xs font-semibold tabular mt-0.5" style={{ color:'#2563EB' }}>
-                          {fmt(totalInvest)} invest.
-                        </p>
+                        <p className="text-xs font-semibold tabular mt-0.5" style={{ color:'#2563EB' }}>{fmt(totalInvest)} invest.</p>
                       )}
                     </div>
                   </div>
-
-                  {/* Progress */}
                   <div className="flex items-center gap-3">
                     <div className="flex-1 h-1.5 rounded-full" style={{ background:'#F0EFE9' }}>
-                      <div className="h-1.5 rounded-full transition-all duration-700"
-                        style={{ width:`${pct}%`, background:accent }} />
+                      <div className="h-1.5 rounded-full transition-all" style={{ width:`${pct}%`, background:accent }} />
                     </div>
                     <div className="flex items-center gap-1.5">
                       <p className="text-xs tabular font-medium" style={{ color:'#A8A79E' }}>{pct}%</p>
@@ -170,15 +189,13 @@ export default function Cofres() {
 
                 {/* Expanded */}
                 {isOpen && (
-                  <div style={{ borderTop:`1px solid #F0EFE9` }}>
+                  <div style={{ borderTop:'1px solid #F0EFE9' }}>
                     {/* Period filters */}
                     <div className="px-4 pt-3 pb-2 flex gap-1.5 overflow-x-auto" style={{ scrollbarWidth:'none' }}>
                       {(Object.entries(PERIOD_LABELS) as [Period,string][]).map(([p,label])=>(
                         <button key={p} onClick={e=>{e.stopPropagation();setPeriod(key,p)}}
-                          className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all pressable"
-                          style={period===p
-                            ? { background:accent, color:'#fff' }
-                            : { background:'#F0EFE9', color:'#857A50' }}>
+                          className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold pressable"
+                          style={period===p ? { background:accent, color:'#fff' } : { background:'#F0EFE9', color:'#857A50' }}>
                           {label}
                         </button>
                       ))}
@@ -186,67 +203,59 @@ export default function Cofres() {
 
                     <div className="px-4 pb-4 space-y-2">
                       {/* Incomes */}
-                      {incomes.length>0 && (
-                        <>
-                          <p className="text-xs font-semibold tracking-wide uppercase mb-2" style={{ color:'#A8A79E' }}>Entradas</p>
-                          {incomes.map(tx=>(
-                            <div key={tx.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl"
-                              style={{ background:bg, border:`1px solid ${border}` }}>
-                              <div className="flex items-center gap-2.5 flex-1 min-w-0 mr-3">
-                                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                                  style={{ background:'rgba(255,255,255,0.6)' }}>
-                                  <Icon name={CATEGORY_ICON[tx.category]||'coins'} size={13} color={accent} />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium truncate" style={{ color:'#1A1A14' }}>{tx.description}</p>
-                                  <p className="text-xs" style={{ color:'#A8A79E' }}>
-                                    {new Date(tx.date+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}
-                                  </p>
-                                </div>
+                      {incomes.length>0 && (<>
+                        <p className="text-xs font-semibold tracking-wide uppercase mb-2" style={{ color:'#A8A79E' }}>Entradas</p>
+                        {incomes.map(tx=>(
+                          <div key={tx.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+                            style={{ background:bg, border:`1px solid ${border}` }}>
+                            <div className="flex items-center gap-2.5 flex-1 min-w-0 mr-3">
+                              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background:'rgba(255,255,255,0.6)' }}>
+                                <Icon name={CATEGORY_ICON[tx.category]||'coins'} size={13} color={accent} />
                               </div>
-                              <p className="text-sm font-bold tabular flex-shrink-0" style={{ color:textAccent }}>
-                                +{fmt(tx.amount)}
-                              </p>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium truncate" style={{ color:'#1A1A14' }}>{tx.description}</p>
+                                <p className="text-xs" style={{ color:'#A8A79E' }}>
+                                  {new Date(tx.date+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}
+                                </p>
+                              </div>
                             </div>
-                          ))}
-                          <div className="flex justify-between items-center pt-1 px-1">
-                            <p className="text-xs font-semibold" style={{ color:'#A8A79E' }}>Subtotal</p>
-                            <p className="text-sm font-bold tabular" style={{ color:textAccent }}>{fmt(totalIncome)}</p>
+                            <p className="text-sm font-bold tabular flex-shrink-0" style={{ color:textAccent }}>+{fmt(tx.amount)}</p>
                           </div>
-                        </>
-                      )}
+                        ))}
+                        <div className="flex justify-between items-center pt-1 px-1">
+                          <p className="text-xs font-semibold" style={{ color:'#A8A79E' }}>Subtotal</p>
+                          <p className="text-sm font-bold tabular" style={{ color:textAccent }}>{fmt(totalIncome)}</p>
+                        </div>
+                      </>)}
 
                       {/* Investments */}
-                      {investments.length>0 && (
-                        <>
-                          <div className="flex items-center gap-2 mt-3 mb-2">
-                            <Icon name="invest" size={12} color="#2563EB" />
-                            <p className="text-xs font-semibold tracking-wide uppercase" style={{ color:'#2563EB' }}>Investimentos deste cofre</p>
-                          </div>
-                          {investments.map(tx=>(
-                            <div key={tx.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl"
-                              style={{ background:'#EFF6FF', border:'1px solid #BFDBFE' }}>
-                              <div className="flex items-center gap-2.5 flex-1 min-w-0 mr-3">
-                                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                                  style={{ background:'rgba(255,255,255,0.6)' }}>
-                                  <Icon name="invest" size={13} color="#2563EB" />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium truncate" style={{ color:'#1D4ED8' }}>{tx.description}</p>
-                                  <p className="text-xs" style={{ color:'#93C5FD' }}>
-                                    {new Date(tx.date+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}
-                                  </p>
-                                </div>
+                      {investments.length>0 && (<>
+                        <div className="flex items-center gap-2 mt-3 mb-2">
+                          <Icon name="invest" size={12} color="#2563EB" />
+                          <p className="text-xs font-semibold tracking-wide uppercase" style={{ color:'#2563EB' }}>Investimentos deste cofre</p>
+                        </div>
+                        {investments.map(tx=>(
+                          <div key={tx.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl"
+                            style={{ background:'#EFF6FF', border:'1px solid #BFDBFE' }}>
+                            <div className="flex items-center gap-2.5 flex-1 min-w-0 mr-3">
+                              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background:'rgba(255,255,255,0.6)' }}>
+                                <Icon name="invest" size={13} color="#2563EB" />
                               </div>
-                              <p className="text-sm font-bold tabular flex-shrink-0" style={{ color:'#2563EB' }}>{fmt(tx.amount)}</p>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium truncate" style={{ color:'#1D4ED8' }}>{tx.description}</p>
+                                <p className="text-xs" style={{ color:'#93C5FD' }}>
+                                  {new Date(tx.date+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}
+                                </p>
+                              </div>
                             </div>
-                          ))}
-                          <div className="flex justify-between items-center pt-1 px-1">
-                            <p className="text-xs font-semibold" style={{ color:'#93C5FD' }}>Total investido</p>
-                            <p className="text-sm font-bold tabular" style={{ color:'#2563EB' }}>{fmt(totalInvest)}</p>
+                            <p className="text-sm font-bold tabular flex-shrink-0" style={{ color:'#2563EB' }}>{fmt(tx.amount)}</p>
                           </div>
-                        </>
-                      )}
+                        ))}
+                        <div className="flex justify-between items-center pt-1 px-1">
+                          <p className="text-xs font-semibold" style={{ color:'#93C5FD' }}>Total investido</p>
+                          <p className="text-sm font-bold tabular" style={{ color:'#2563EB' }}>{fmt(totalInvest)}</p>
+                        </div>
+                      </>)}
 
                       {incomes.length===0 && investments.length===0 && (
                         <div className="py-8 flex flex-col items-center gap-2">
