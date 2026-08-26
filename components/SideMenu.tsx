@@ -75,14 +75,15 @@ export default function SideMenu({ open, onClose }: Props) {
   const activeBills = (bills || []).filter(b => b.active && b.recurring)
   const billsForMonth = useMemo(() => {
     const now = new Date()
-    return activeBills
+    return (bills || [])
+      .filter(b => b.active && b.recurring)
       .map(b => {
         const due = new Date(now.getFullYear(), now.getMonth() + monthOff, b.dueDay)
         const isPast = monthOff === 0 && due < now
         return { ...b, due, isPast }
       })
       .sort((a, b) => a.dueDay - b.dueDay)
-  }, [activeBills, monthOff])
+  }, [bills, monthOff])
 
   const totalBills = billsForMonth.reduce((s, b) => s + b.amount, 0)
 
