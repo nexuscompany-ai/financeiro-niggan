@@ -445,7 +445,7 @@ export default function SideMenu({ open, onClose }: Props) {
 
             {/* Total + pagar fatura */}
             <div style={{...card(),padding:'14px 16px'}}>
-              <div style={row({justifyContent:'space-between',alignItems:'flex-start'})}>
+                <div style={{display:'flex',flexDirection:'column',gap:10}}>
                 <div>
                   <p style={{fontSize:11,fontWeight:600,color:S.faint,marginBottom:4}}>Total em cartões</p>
                   <p style={{fontFamily:S.display,fontWeight:700,fontSize:26,color:S.red,lineHeight:1}}>{fmt(totalCC)}</p>
