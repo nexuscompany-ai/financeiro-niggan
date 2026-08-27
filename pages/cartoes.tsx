@@ -53,12 +53,22 @@ export default function Cartoes() {
   const today = new Date().toISOString().split('T')[0]
 
   function confirmPay() {
-    const amt = payCard==='C6'?totalC6:totalNu
-    const acct= PAY_ACCOUNTS.find(a=>a.key===payAcct)!
-    const bal = getBalance(payAcct)
+    const amt  = payCard==='C6'?totalC6:totalNu
+    const list = payCard==='C6'?c6List:nuList
+    const acct = PAY_ACCOUNTS.find(a=>a.key===payAcct)!
+    const bal  = getBalance(payAcct)
+    // Registra saída e desconta da conta bancária
     addTx({type:'expense',category:'Cartão de Crédito',amount:amt,
       description:`Fatura ${payCard} — ${mLabel(mOff)} — via ${acct.label}`,date:today})
     updatePat(payAcct,Math.max(0,bal-amt))
+    // Remove ou avança parcelas do cartão pago
+    list.forEach(p => {
+      if (p.currentInstallment >= p.installments) {
+        removeCC(p.id)
+      } else {
+        updateCC(p.id, { currentInstallment: p.currentInstallment + 1 })
+      }
+    })
     setShowPay(false)
   }
 
