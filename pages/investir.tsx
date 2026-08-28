@@ -5,12 +5,14 @@ import { formatCurrency } from '@/lib/utils'
 import Icon from '@/components/Icon'
 import MoneyInput from '@/components/MoneyInput'
 
+const SOURCE_COLOR = '#8A6D2E'
+
 const SOURCES = [
-  {key:'Salário FGL Brasil',label:'Salário FGL',  color:'#3B82F6',icon:'briefcase'},
-  {key:'Contratos FGL',     label:'Contratos FGL', color:'#F59E0B',icon:'tool'     },
-  {key:'TikTok Shop',       label:'TikTok Shop',   color:'#EC4899',icon:'tiktok'   },
-  {key:'F7 Empresa',        label:'F7 Empresa',    color:'#8B5CF6',icon:'building' },
-  {key:'Outras receitas',   label:'Outras receitas',color:'#6B6140',icon:'coins'   },
+  {key:'Salário FGL Brasil',label:'Salário FGL',  color:SOURCE_COLOR,icon:'briefcase'},
+  {key:'Contratos FGL',     label:'Contratos FGL', color:SOURCE_COLOR,icon:'tool'     },
+  {key:'TikTok Shop',       label:'TikTok Shop',   color:SOURCE_COLOR,icon:'tiktok'   },
+  {key:'F7 Empresa',        label:'F7 Empresa',    color:SOURCE_COLOR,icon:'building' },
+  {key:'Outras receitas',   label:'Outras receitas',color:SOURCE_COLOR,icon:'coins'   },
 ]
 
 export default function Investir() {

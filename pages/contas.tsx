@@ -209,10 +209,10 @@ export default function Contas() {
               <div style={{display:'flex',alignItems:'center',padding:'14px 16px',gap:12,
                 opacity:b.past?0.55:1}}>
                 <div style={{width:40,height:40,borderRadius:12,flexShrink:0,
-                  background:b.past?'#F0F0F0':'#FEF9EE',
-                  border:`1px solid ${b.past?'#E5E3D8':'#FDE68A'}`,
+                  background:b.past?'#F0F0F0':'#F0EFE9',
+                  border:`1px solid ${b.past?'#E5E3D8':'#D8D4B8'}`,
                   display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <Icon name="zap" size={17} color={b.past?S.faint:'#F59E0B'}/>
+                  <Icon name="zap" size={17} color={b.past?S.faint:S.muted}/>
                 </div>
                 <div style={{flex:1,minWidth:0}}>
                   <p style={{fontSize:15,fontWeight:600,color:S.text,margin:0,

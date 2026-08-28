@@ -8,11 +8,16 @@ import MoneyInput from '@/components/MoneyInput'
 type Period = 'month'|'7d'|'90d'|'all'
 const PERIOD_LABELS: Record<Period,string> = {month:'Este mês','7d':'7 dias','90d':'90 dias',all:'Histórico'}
 
+const COFRE_ACCENT = '#6B6140'
+const COFRE_BG = '#F7F6F2'
+const COFRE_BORDER = '#E5E3D8'
+const COFRE_TEXT_ACCENT = '#292615'
+
 const COFRES = [
-  {key:'Salário FGL Brasil',icon:'briefcase',accent:'#3B82F6',bg:'#EFF6FF',border:'#BFDBFE',textAccent:'#1D4ED8'},
-  {key:'Contratos FGL',     icon:'tool',      accent:'#F59E0B',bg:'#FFFBEB',border:'#FDE68A',textAccent:'#92400E'},
-  {key:'TikTok Shop',       icon:'tiktok',    accent:'#EC4899',bg:'#FDF2F8',border:'#FBCFE8',textAccent:'#9D174D'},
-  {key:'F7 Empresa',        icon:'building',  accent:'#8B5CF6',bg:'#F5F3FF',border:'#DDD6FE',textAccent:'#5B21B6'},
+  {key:'Salário FGL Brasil',icon:'briefcase',accent:COFRE_ACCENT,bg:COFRE_BG,border:COFRE_BORDER,textAccent:COFRE_TEXT_ACCENT},
+  {key:'Contratos FGL',     icon:'tool',      accent:COFRE_ACCENT,bg:COFRE_BG,border:COFRE_BORDER,textAccent:COFRE_TEXT_ACCENT},
+  {key:'TikTok Shop',       icon:'tiktok',    accent:COFRE_ACCENT,bg:COFRE_BG,border:COFRE_BORDER,textAccent:COFRE_TEXT_ACCENT},
+  {key:'F7 Empresa',        icon:'building',  accent:COFRE_ACCENT,bg:COFRE_BG,border:COFRE_BORDER,textAccent:COFRE_TEXT_ACCENT},
 ]
 
 const TRANSFER_DESTINATIONS = [
@@ -132,7 +137,7 @@ function TransferModal({ maxAmount, description, fromCategory, onClose }: Transf
                 style={{flex:1,padding:'11px 8px',borderRadius:12,border:'none',cursor:'pointer',
                   fontWeight:700,fontSize:13,transition:'all 0.15s',
                   ...(type==='investment'
-                    ?{background:'#2563EB',color:'#fff',boxShadow:'0 2px 8px rgba(37,99,235,0.2)'}
+                    ?{background:'#8A6D2E',color:'#fff',boxShadow:'0 2px 8px rgba(138,109,46,0.25)'}
                     :{background:'#F0EFE9',color:'#857A50'})}}>
                 Investimento
               </button>
@@ -179,7 +184,7 @@ function TransferModal({ maxAmount, description, fromCategory, onClose }: Transf
               {type==='account'
                 ? <>{formatCurrency(amount)} → <strong style={{color:'#1A1A14'}}>{destInfo.label}</strong>
                     {bal>=0 && <> · saldo vai para <strong style={{color:'#2D7A4F'}}>{formatCurrency(bal+amount)}</strong></>}</>
-                : <>Registrar investimento de <strong style={{color:'#2563EB'}}>{formatCurrency(amount)}</strong></>
+                : <>Registrar investimento de <strong style={{color:'#8A6D2E'}}>{formatCurrency(amount)}</strong></>
               }
             </p>
           </div>
@@ -195,8 +200,8 @@ function TransferModal({ maxAmount, description, fromCategory, onClose }: Transf
               style={{flex:2,padding:'14px',borderRadius:14,border:'none',cursor:'pointer',
                 fontSize:14,fontWeight:700,transition:'all 0.15s',
                 ...(valid
-                  ?{background:type==='investment'?'#2563EB':'#2D7A4F',color:'#fff',
-                    boxShadow:`0 4px 14px ${type==='investment'?'rgba(37,99,235,0.25)':'rgba(45,122,79,0.25)'}`}
+                  ?{background:type==='investment'?'#8A6D2E':'#2D7A4F',color:'#fff',
+                    boxShadow:`0 4px 14px ${type==='investment'?'rgba(138,109,46,0.25)':'rgba(45,122,79,0.25)'}`}
                   :{background:'#F0EFE9',color:'#C8C5B8'})}}>
               Confirmar
             </button>
@@ -366,7 +371,7 @@ export default function Cofres() {
                       <p style={{fontFamily:'Space Grotesk,sans-serif',fontWeight:700,fontSize:17,
                         color:'#1A1A14',margin:0}}>{fmt(totalIncome)}</p>
                       {totalInvest>0&&(
-                        <p style={{fontSize:11,fontWeight:600,color:'#2563EB',marginTop:2,margin:0}}>
+                        <p style={{fontSize:11,fontWeight:600,color:'#8A6D2E',marginTop:2,margin:0}}>
                           {fmt(totalInvest)} invest.
                         </p>
                       )}
@@ -440,29 +445,29 @@ export default function Cofres() {
 
                       {investments.length>0&&(<>
                         <div style={{display:'flex',alignItems:'center',gap:6,marginTop:8,marginBottom:4}}>
-                          <Icon name="invest" size={12} color="#2563EB"/>
-                          <p style={{fontSize:10,fontWeight:700,color:'#2563EB',textTransform:'uppercase',
+                          <Icon name="invest" size={12} color="#8A6D2E"/>
+                          <p style={{fontSize:10,fontWeight:700,color:'#8A6D2E',textTransform:'uppercase',
                             letterSpacing:'0.06em',margin:0}}>Investimentos</p>
                         </div>
                         {investments.map(tx=>(
                           <div key={tx.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',
-                            padding:'10px 12px',borderRadius:12,background:'#EFF6FF',border:'1px solid #BFDBFE'}}>
+                            padding:'10px 12px',borderRadius:12,background:'#FAF3E1',border:'1px solid #E9D9AE'}}>
                             <div style={{flex:1,minWidth:0}}>
-                              <p style={{fontSize:13,fontWeight:500,color:'#1D4ED8',margin:0,
+                              <p style={{fontSize:13,fontWeight:500,color:'#6B5423',margin:0,
                                 overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{tx.description}</p>
-                              <p style={{fontSize:10,color:'#93C5FD',margin:0}}>
+                              <p style={{fontSize:10,color:'#B9A876',margin:0}}>
                                 {new Date(tx.date+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}
                               </p>
                             </div>
-                            <p style={{fontSize:13,fontWeight:700,color:'#2563EB',marginLeft:12,flexShrink:0,margin:0}}>
+                            <p style={{fontSize:13,fontWeight:700,color:'#8A6D2E',marginLeft:12,flexShrink:0,margin:0}}>
                               {fmt(tx.amount)}
                             </p>
                           </div>
                         ))}
                         <div style={{display:'flex',justifyContent:'space-between',padding:'4px 4px 0',
-                          borderTop:'1px solid #BFDBFE'}}>
-                          <p style={{fontSize:11,fontWeight:700,color:'#93C5FD',margin:0}}>Total investido</p>
-                          <p style={{fontSize:13,fontWeight:700,color:'#2563EB',margin:0}}>{fmt(totalInvest)}</p>
+                          borderTop:'1px solid #E9D9AE'}}>
+                          <p style={{fontSize:11,fontWeight:700,color:'#B9A876',margin:0}}>Total investido</p>
+                          <p style={{fontSize:13,fontWeight:700,color:'#8A6D2E',margin:0}}>{fmt(totalInvest)}</p>
                         </div>
                       </>)}
 

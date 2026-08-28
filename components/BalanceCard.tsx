@@ -50,7 +50,7 @@ export default function BalanceCard({ hidden = false }: { hidden?: boolean }) {
           {[
             { label:'Entrou', value:month.income, color:'#4ADE80', icon:'arrowDown' },
             { label:'Saiu',   value:month.expense, color:'#F87171', icon:'arrowUp' },
-            { label:'Aporte', value:month.investment, color:'#60A5FA', icon:'invest' },
+            { label:'Aporte', value:month.investment, color:'#C9A84C', icon:'invest' },
           ].map(({ label, value, color, icon }) => (
             <div key={label} className="rounded-2xl p-3" style={{ background:'rgba(255,255,255,0.06)' }}>
               <div className="flex items-center gap-1 mb-1.5">

@@ -50,8 +50,8 @@ export default function TransactionsList({ hidden = false }: { hidden?: boolean 
     setEditingId(null); setEditData({})
   }
 
-  const typeColor = (t: string) => t==='income'?'#2D7A4F':t==='investment'?'#2563EB':'#C0392B'
-  const typeBg   = (t: string) => t==='income'?'#EBF7F0':t==='investment'?'#EFF6FF':'#FCECEA'
+  const typeColor = (t: string) => t==='income'?'#2D7A4F':t==='investment'?'#8A6D2E':'#C0392B'
+  const typeBg   = (t: string) => t==='income'?'#EBF7F0':t==='investment'?'#FAF3E1':'#FCECEA'
   const typeSign  = (t: string) => t==='income'?'+':t==='investment'?'↗':'-'
 
   const FILTERS: { key: FilterType; label: string }[] = [
@@ -125,7 +125,7 @@ export default function TransactionsList({ hidden = false }: { hidden?: boolean 
                           <button key={tp} type="button" onClick={()=>setEditData(d=>({...d,type:tp}))}
                             className="flex-1 py-2 rounded-xl text-xs font-semibold transition-all pressable"
                             style={editData.type===tp
-                              ? { background:tp==='income'?'#2D7A4F':tp==='investment'?'#2563EB':'#C0392B', color:'#fff' }
+                              ? { background:tp==='income'?'#2D7A4F':tp==='investment'?'#8A6D2E':'#C0392B', color:'#fff' }
                               : { background:'#F0EFE9', color:'#857A50' }}>
                             {tp==='income'?'Entrada':tp==='investment'?'Invest.':'Saída'}
                           </button>

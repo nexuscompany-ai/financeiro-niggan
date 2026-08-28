@@ -35,7 +35,7 @@ export default function TransactionInput({ onSubmit }: { onSubmit?: () => void }
   const typeConfig = {
     expense:    { label:'↑ Saída',    bg:'#C0392B', light:'#FCECEA', text:'#C0392B' },
     income:     { label:'↓ Entrada',  bg:'#2D7A4F', light:'#EBF7F0', text:'#2D7A4F' },
-    investment: { label:'↗ Investir', bg:'#2563EB', light:'#EFF6FF', text:'#2563EB' },
+    investment: { label:'↗ Investir', bg:'#8A6D2E', light:'#FAF3E1', text:'#8A6D2E' },
   }
   const activeColor = typeConfig[type].bg
 
@@ -76,10 +76,10 @@ export default function TransactionInput({ onSubmit }: { onSubmit?: () => void }
 
         {/* Investment origin */}
         {type==='investment'&&(
-          <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:12,padding:'10px 14px'}}>
-            <p style={{fontSize:11,fontWeight:700,color:'#2563EB',marginBottom:6,margin:0}}>De qual cofre vem?</p>
+          <div style={{background:'#FAF3E1',border:'1px solid #E9D9AE',borderRadius:12,padding:'10px 14px'}}>
+            <p style={{fontSize:11,fontWeight:700,color:'#8A6D2E',marginBottom:6,margin:0}}>De qual cofre vem?</p>
             <select value={fromCategory} onChange={e=>setFromCategory(e.target.value)}
-              style={{...inp,background:'#fff',border:'1px solid #BFDBFE',color:'#1D4ED8',marginTop:6}}>
+              style={{...inp,background:'#fff',border:'1px solid #E9D9AE',color:'#6B5423',marginTop:6}}>
               {INCOME_CATEGORIES.map(c=><option key={c}>{c}</option>)}
             </select>
           </div>

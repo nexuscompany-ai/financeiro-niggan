@@ -147,8 +147,8 @@ export default function Home() {
             <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ background: '#E5E3D8' }} />
             <div className="text-center mb-5">
               <div className="w-14 h-14 rounded-2xl mx-auto mb-3 flex items-center justify-center"
-                style={{ background: '#FDF2F8', border: '1px solid #FBCFE8' }}>
-                <Icon name="tiktok" size={26} color="#EC4899" />
+                style={{ background: '#F0EFE9', border: '1px solid #D8D4B8' }}>
+                <Icon name="tiktok" size={26} color="#6B6140" />
               </div>
               <h2 className="font-display font-bold text-xl" style={{ color: '#292615' }}>TikTok Shop</h2>
               <p className="text-sm mt-1" style={{ color: '#A8A79E' }}>Quarta-feira! Quanto entrou essa semana?</p>

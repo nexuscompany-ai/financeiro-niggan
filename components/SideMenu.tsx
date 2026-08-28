@@ -22,34 +22,35 @@ export default function SideMenu({ open, onClose }: Props) {
   const srcInc = (k:string) => txs.filter(t=>t.type==='income'&&t.category===k&&t.date>=som).reduce((s,t)=>s+t.amount,0)
 
   const SOURCES = [
-    {key:'Salário FGL Brasil',label:'Salário FGL',   color:'#3B82F6',icon:'briefcase'},
-    {key:'Contratos FGL',     label:'Contratos FGL',  color:'#F59E0B',icon:'tool'     },
-    {key:'TikTok Shop',       label:'TikTok Shop',    color:'#EC4899',icon:'tiktok'   },
-    {key:'F7 Empresa',        label:'F7 Empresa',     color:'#8B5CF6',icon:'building' },
+    {key:'Salário FGL Brasil',label:'Salário FGL',   icon:'briefcase'},
+    {key:'Contratos FGL',     label:'Contratos FGL',  icon:'tool'     },
+    {key:'TikTok Shop',       label:'TikTok Shop',    icon:'tiktok'   },
+    {key:'F7 Empresa',        label:'F7 Empresa',     icon:'building' },
   ]
 
   const S = {
-    olive:'#3D3822', oliveL:'#F0D98A',
+    olive:'#3D3822', oliveL:'#F0D98A', oliveDark:'#292615',
     text:'#1A1A14', muted:'#857A50', faint:'#B0AC98',
     surface:'#fff', border:'1px solid #F0EFE9',
-    red:'#C0392B', green:'#2D7A4F',
+    iconBg:'#F0EFE9', iconColor:'#6B6140',
+    red:'#C0392B', green:'#2D7A4F', gold:'#8A6D2E',
   }
 
-  const NavCard = ({href,icon,label,value,color,sub}:{href:string,icon:string,label:string,value:string,color:string,sub?:string}) => (
+  const NavCard = ({href,icon,label,value,valueColor,sub}:{href:string,icon:string,label:string,value:string,valueColor?:string,sub?:string}) => (
     <Link href={href} onClick={onClose}
       style={{display:'flex',alignItems:'center',padding:'14px 16px',
         background:S.surface,borderRadius:18,border:S.border,textDecoration:'none',
         boxShadow:'0 1px 4px rgba(0,0,0,0.05)',gap:14}}>
-      <div style={{width:44,height:44,borderRadius:14,background:`${color}15`,
+      <div style={{width:44,height:44,borderRadius:14,background:S.iconBg,
         display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-        <Icon name={icon} size={20} color={color}/>
+        <Icon name={icon} size={20} color={S.iconColor}/>
       </div>
       <div style={{flex:1,minWidth:0}}>
         <p style={{fontSize:15,fontWeight:700,color:S.text,margin:0}}>{label}</p>
         {sub&&<p style={{fontSize:11,color:S.faint,margin:'2px 0 0'}}>{sub}</p>}
       </div>
       <div style={{textAlign:'right',flexShrink:0}}>
-        <p style={{fontSize:15,fontWeight:700,color,margin:0}}>{value}</p>
+        {value&&<p style={{fontSize:15,fontWeight:700,color:valueColor||S.text,margin:0}}>{value}</p>}
         <Icon name="arrowRight" size={14} color={S.faint}/>
       </div>
     </Link>
@@ -95,20 +96,19 @@ export default function SideMenu({ open, onClose }: Props) {
             letterSpacing:'0.08em',margin:'4px 0 4px 4px'}}>Finanças</p>
 
           <NavCard href="/contas" icon="zap" label="Contas a pagar"
-            value={formatCurrency(totalBills)} color="#F59E0B"
+            value={formatCurrency(totalBills)} valueColor={S.red}
             sub={`${bills.filter(b=>b.active&&b.recurring).length} contas fixas`}/>
 
           <NavCard href="/cartoes" icon="creditCard" label="Cartões de crédito"
-            value={formatCurrency(totalCC)} color={S.red}
+            value={formatCurrency(totalCC)} valueColor={S.red}
             sub={`${cards.length} parcela${cards.length!==1?'s':''} ativas`}/>
 
           <NavCard href="/cofres" icon="safe" label="Cofres"
-            value={formatCurrency(totalInc)} color="#2D7A4F"
+            value={formatCurrency(totalInc)} valueColor={S.green}
             sub="Entradas deste mês"/>
 
           <NavCard href="/investir" icon="invest" label="Simulador de aporte"
-            value="" color="#2563EB"
-            sub="Simule seus investimentos"/>
+            value="" sub="Simule seus investimentos"/>
 
           {/* Seção fontes */}
           <p style={{fontSize:10,fontWeight:700,color:S.faint,textTransform:'uppercase',
@@ -121,12 +121,12 @@ export default function SideMenu({ open, onClose }: Props) {
               <div key={s.key}
                 style={{display:'flex',alignItems:'center',padding:'12px 14px',
                   background:S.surface,borderRadius:14,border:S.border,gap:12}}>
-                <div style={{width:36,height:36,borderRadius:11,background:`${s.color}15`,
+                <div style={{width:36,height:36,borderRadius:11,background:S.iconBg,
                   display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                  <Icon name={s.icon} size={16} color={s.color}/>
+                  <Icon name={s.icon} size={16} color={S.iconColor}/>
                 </div>
                 <p style={{fontSize:13,fontWeight:600,color:S.text,flex:1,margin:0}}>{s.label}</p>
-                <p style={{fontSize:14,fontWeight:700,color:s.color,margin:0}}>{formatCurrency(v)}</p>
+                <p style={{fontSize:14,fontWeight:700,color:S.oliveDark,margin:0}}>{formatCurrency(v)}</p>
               </div>
             )
           })}
