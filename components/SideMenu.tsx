@@ -31,26 +31,32 @@ export default function SideMenu({ open, onClose }: Props) {
   const S = {
     olive:'#3D3822', oliveL:'#F0D98A', oliveDark:'#292615',
     text:'#1A1A14', muted:'#857A50', faint:'#B0AC98',
-    surface:'#fff', border:'1px solid #F0EFE9',
-    iconBg:'#F0EFE9', iconColor:'#6B6140',
+    surface:'#fff', border:'#F0EFE9',
+    iconBg:'rgba(201,168,76,0.14)', iconColor:'#8A6D2E',
     red:'#C0392B', green:'#2D7A4F', gold:'#8A6D2E',
   }
 
-  const NavCard = ({href,icon,label,value,valueColor,sub}:{href:string,icon:string,label:string,value:string,valueColor?:string,sub?:string}) => (
-    <Link href={href} onClick={onClose}
+  const groupStyle: React.CSSProperties = {
+    background:S.surface, borderRadius:20, border:`1px solid ${S.border}`,
+    overflow:'hidden', boxShadow:'0 1px 3px rgba(41,38,21,0.05)',
+  }
+
+  const NavRow = ({href,icon,label,value,valueColor,sub,divider}:
+    {href:string,icon:string,label:string,value:string,valueColor?:string,sub?:string,divider?:boolean}) => (
+    <Link href={href} onClick={onClose} className="pressable"
       style={{display:'flex',alignItems:'center',padding:'14px 16px',
-        background:S.surface,borderRadius:18,border:S.border,textDecoration:'none',
-        boxShadow:'0 1px 4px rgba(0,0,0,0.05)',gap:14}}>
-      <div style={{width:44,height:44,borderRadius:14,background:S.iconBg,
+        textDecoration:'none', gap:14,
+        borderTop:divider?`1px solid ${S.border}`:'none'}}>
+      <div style={{width:42,height:42,borderRadius:13,background:S.iconBg,
         display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-        <Icon name={icon} size={20} color={S.iconColor}/>
+        <Icon name={icon} size={19} color={S.iconColor}/>
       </div>
       <div style={{flex:1,minWidth:0}}>
-        <p style={{fontSize:15,fontWeight:700,color:S.text,margin:0}}>{label}</p>
+        <p style={{fontSize:14,fontWeight:700,color:S.text,margin:0}}>{label}</p>
         {sub&&<p style={{fontSize:11,color:S.faint,margin:'2px 0 0'}}>{sub}</p>}
       </div>
-      <div style={{textAlign:'right',flexShrink:0}}>
-        {value&&<p style={{fontSize:15,fontWeight:700,color:valueColor||S.text,margin:0}}>{value}</p>}
+      <div style={{textAlign:'right',flexShrink:0,display:'flex',alignItems:'center',gap:8}}>
+        {value&&<p style={{fontSize:14,fontWeight:700,color:valueColor||S.text,margin:0}}>{value}</p>}
         <Icon name="arrowRight" size={14} color={S.faint}/>
       </div>
     </Link>
@@ -71,70 +77,84 @@ export default function SideMenu({ open, onClose }: Props) {
         fontFamily:'Inter,system-ui,sans-serif'}}>
 
         {/* Header */}
-        <div style={{padding:'20px 18px 16px',borderBottom:'1px solid #E5E3D8',flexShrink:0,
-          background:'#fff'}}>
+        <div style={{padding:'20px 18px 18px',flexShrink:0,
+          background:'linear-gradient(180deg,#3D3822 0%,#292615 100%)'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-            <div>
-              <p style={{fontFamily:'Space Grotesk,sans-serif',fontWeight:700,fontSize:20,
-                color:S.text,margin:0}}>Menu</p>
-              <p style={{fontSize:12,color:S.faint,margin:'2px 0 0'}}>Ferramentas financeiras</p>
+            <div style={{display:'flex',alignItems:'center',gap:12}}>
+              <div style={{width:38,height:38,borderRadius:12,background:'rgba(201,168,76,0.18)',
+                display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                <Icon name="safe" size={18} color="#C9A84C"/>
+              </div>
+              <div>
+                <p style={{fontFamily:'Space Grotesk,sans-serif',fontWeight:700,fontSize:19,
+                  color:'#fff',margin:0}}>Menu</p>
+                <p style={{fontSize:11,color:'#A09868',margin:'2px 0 0'}}>Ferramentas financeiras</p>
+              </div>
             </div>
-            <button onClick={onClose}
-              style={{width:36,height:36,borderRadius:11,background:'#F0EFE9',border:'none',
+            <button onClick={onClose} className="pressable"
+              style={{width:34,height:34,borderRadius:11,background:'rgba(255,255,255,0.08)',border:'none',
                 cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-              <Icon name="close" size={15} color={S.muted}/>
+              <Icon name="close" size={14} color="#C8C5B8"/>
             </button>
           </div>
         </div>
 
         {/* Scroll content */}
         <div style={{flex:1,overflowY:'auto',overscrollBehavior:'contain',
-          padding:'16px',display:'flex',flexDirection:'column',gap:10}}>
+          padding:'16px',display:'flex',flexDirection:'column',gap:18}}>
 
           {/* Seção finanças */}
-          <p style={{fontSize:10,fontWeight:700,color:S.faint,textTransform:'uppercase',
-            letterSpacing:'0.08em',margin:'4px 0 4px 4px'}}>Finanças</p>
+          <div>
+            <p style={{fontSize:10,fontWeight:700,color:S.faint,textTransform:'uppercase',
+              letterSpacing:'0.08em',margin:'0 0 8px 4px'}}>Finanças</p>
+            <div style={groupStyle}>
+              <NavRow href="/contas" icon="zap" label="Contas a pagar"
+                value={formatCurrency(totalBills)} valueColor={S.red}
+                sub={`${bills.filter(b=>b.active&&b.recurring).length} contas fixas`}/>
 
-          <NavCard href="/contas" icon="zap" label="Contas a pagar"
-            value={formatCurrency(totalBills)} valueColor={S.red}
-            sub={`${bills.filter(b=>b.active&&b.recurring).length} contas fixas`}/>
+              <NavRow href="/cartoes" icon="creditCard" label="Cartões de crédito"
+                value={formatCurrency(totalCC)} valueColor={S.red}
+                sub={`${cards.length} parcela${cards.length!==1?'s':''} ativas`} divider/>
 
-          <NavCard href="/cartoes" icon="creditCard" label="Cartões de crédito"
-            value={formatCurrency(totalCC)} valueColor={S.red}
-            sub={`${cards.length} parcela${cards.length!==1?'s':''} ativas`}/>
+              <NavRow href="/cofres" icon="safe" label="Cofres"
+                value={formatCurrency(totalInc)} valueColor={S.green}
+                sub="Entradas deste mês" divider/>
 
-          <NavCard href="/cofres" icon="safe" label="Cofres"
-            value={formatCurrency(totalInc)} valueColor={S.green}
-            sub="Entradas deste mês"/>
-
-          <NavCard href="/investir" icon="invest" label="Simulador de aporte"
-            value="" sub="Simule seus investimentos"/>
+              <NavRow href="/investir" icon="invest" label="Simulador de aporte"
+                value="" sub="Simule seus investimentos" divider/>
+            </div>
+          </div>
 
           {/* Seção fontes */}
-          <p style={{fontSize:10,fontWeight:700,color:S.faint,textTransform:'uppercase',
-            letterSpacing:'0.08em',margin:'12px 0 4px 4px'}}>Este mês por fonte</p>
-
-          {SOURCES.map(s=>{
-            const v = srcInc(s.key)
-            if (v===0) return null
+          {(() => {
+            const activeSources = SOURCES.map(s=>({...s,v:srcInc(s.key)})).filter(s=>s.v>0)
+            if (activeSources.length===0) return null
             return (
-              <div key={s.key}
-                style={{display:'flex',alignItems:'center',padding:'12px 14px',
-                  background:S.surface,borderRadius:14,border:S.border,gap:12}}>
-                <div style={{width:36,height:36,borderRadius:11,background:S.iconBg,
-                  display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                  <Icon name={s.icon} size={16} color={S.iconColor}/>
+              <div>
+                <p style={{fontSize:10,fontWeight:700,color:S.faint,textTransform:'uppercase',
+                  letterSpacing:'0.08em',margin:'0 0 8px 4px'}}>Este mês por fonte</p>
+                <div style={groupStyle}>
+                  {activeSources.map((s,i)=>(
+                    <div key={s.key}
+                      style={{display:'flex',alignItems:'center',padding:'12px 16px',gap:12,
+                        borderTop:i>0?`1px solid ${S.border}`:'none'}}>
+                      <div style={{width:34,height:34,borderRadius:11,background:S.iconBg,
+                        display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                        <Icon name={s.icon} size={15} color={S.iconColor}/>
+                      </div>
+                      <p style={{fontSize:13,fontWeight:600,color:S.text,flex:1,margin:0}}>{s.label}</p>
+                      <p style={{fontSize:13,fontWeight:700,color:S.oliveDark,margin:0}}>{formatCurrency(s.v)}</p>
+                    </div>
+                  ))}
                 </div>
-                <p style={{fontSize:13,fontWeight:600,color:S.text,flex:1,margin:0}}>{s.label}</p>
-                <p style={{fontSize:14,fontWeight:700,color:S.oliveDark,margin:0}}>{formatCurrency(v)}</p>
               </div>
             )
-          })}
+          })()}
 
         </div>
 
         {/* Footer */}
-        <div style={{padding:'12px 18px',borderTop:'1px solid #E5E3D8',flexShrink:0,
+        <div style={{padding:'12px 18px',borderTop:`1px solid ${S.border}`,flexShrink:0,
           background:'#fff',textAlign:'center'}}>
           <Link href="/settings" onClick={onClose}
             style={{fontSize:12,color:S.faint,textDecoration:'none'}}>

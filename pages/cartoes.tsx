@@ -60,7 +60,9 @@ export default function Cartoes() {
     // Registra saída e desconta da conta bancária
     addTx({type:'expense',category:'Cartão de Crédito',amount:amt,
       description:`Fatura ${payCard} — ${mLabel(mOff)} — via ${acct.label}`,date:today})
-    updatePat(payAcct,Math.max(0,bal-amt))
+    // "Conta corrente" já reflete as transações via getBalance() no BalanceCard —
+    // atualizar o patrimônio aqui também contaria o valor em dobro.
+    if (payAcct !== 'Conta corrente') updatePat(payAcct,Math.max(0,bal-amt))
     // Remove ou avança parcelas do cartão pago
     list.forEach(p => {
       if (p.currentInstallment >= p.installments) {

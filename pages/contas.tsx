@@ -53,7 +53,9 @@ export default function Contas() {
     const acct = PAY_ACCOUNTS.find(a=>a.key===payAcct)!
     addTx({type:'expense',category:b.category||'Outras despesas',amount:b.amount,
       description:`${b.description} — pago via ${acct.label}`,date:today})
-    updatePat(payAcct, Math.max(0,bal-b.amount))
+    // "Conta corrente" já reflete as transações via getBalance() no BalanceCard —
+    // atualizar o patrimônio aqui também contaria o valor em dobro.
+    if (payAcct !== 'Conta corrente') updatePat(payAcct, Math.max(0,bal-b.amount))
     setPayId(null)
   }
 

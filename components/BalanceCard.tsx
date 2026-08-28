@@ -1,20 +1,30 @@
+import { useState } from 'react'
 import useFinanceStore from '@/lib/store'
 import { formatCurrency } from '@/lib/utils'
 import Icon from './Icon'
+import MoneyInput from './MoneyInput'
 
 export default function BalanceCard({ hidden = false }: { hidden?: boolean }) {
   const getThisMonth = useFinanceStore(s => s.getThisMonth)
   const getBalance   = useFinanceStore(s => s.getBalance)
   const patrimony    = useFinanceStore(s => s.patrimony)
+  const updatePatrimony = useFinanceStore(s => s.updatePatrimony)
   const getCreditCardTotal = useFinanceStore(s => s.getCreditCardTotal)
   const syncing      = useFinanceStore(s => s.syncing)
 
+  const [editingConta, setEditingConta] = useState(false)
+  const [newConta,     setNewConta]     = useState(0)
+
   const month        = getThisMonth()
+  const movimentoMes  = getBalance()
   const contaBase     = patrimony.find(p => p.account === 'Conta corrente')?.balance || 0
-  const conta         = contaBase + getBalance()
+  const conta         = contaBase + movimentoMes
   const investimentos= patrimony.find(p => p.account === 'C6 Investimentos')?.balance || 0
   const totalCC      = getCreditCardTotal('C6') + getCreditCardTotal('Nubank')
   const fmt          = (v: number) => hidden ? '•••••' : formatCurrency(v)
+
+  const openEditConta = () => { setNewConta(Math.max(0, conta)); setEditingConta(true) }
+  const saveConta = () => { updatePatrimony('Conta corrente', newConta - movimentoMes); setEditingConta(false) }
 
   const now = new Date()
   const monthName = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
@@ -65,11 +75,11 @@ export default function BalanceCard({ hidden = false }: { hidden?: boolean }) {
         {/* Bottom */}
         <div className="grid grid-cols-3 gap-2 pt-4 relative" style={{ borderTop:'1px solid rgba(255,255,255,0.06)' }}>
           {[
-            { label:'Conta',    value:conta,        color:'#fff',    icon:'wallet' },
+            { label:'Conta',    value:conta,        color:'#fff',    icon:'wallet', onClick:openEditConta },
             { label:'Investido',value:investimentos,color:'#F0D98A', icon:'trending' },
             { label:'Cartões',  value:totalCC,      color:totalCC>0?'#F87171':'#4ADE80', icon:'creditCard', prefix:totalCC>0?'-':'' },
-          ].map(({ label, value, color, icon, prefix }) => (
-            <div key={label}>
+          ].map(({ label, value, color, icon, prefix, onClick }) => (
+            <div key={label} onClick={onClick} className={onClick ? 'pressable' : ''} style={onClick ? { cursor:'pointer' } : undefined}>
               <div className="flex items-center gap-1 mb-0.5">
                 <Icon name={icon} size={10} color="#6B6140" />
                 <p className="text-xs" style={{ color:'#6B6140' }}>{label}</p>
@@ -81,6 +91,36 @@ export default function BalanceCard({ hidden = false }: { hidden?: boolean }) {
           ))}
         </div>
       </div>
+
+      {/* Editar saldo em conta */}
+      {editingConta && (
+        <div style={{position:'fixed',inset:0,zIndex:60,display:'flex',alignItems:'flex-end',
+          background:'rgba(0,0,0,0.55)',backdropFilter:'blur(8px)',WebkitBackdropFilter:'blur(8px)'}}
+          onClick={()=>setEditingConta(false)}>
+          <div onClick={e=>e.stopPropagation()}
+            style={{width:'100%',background:'#fff',borderRadius:'24px 24px 0 0',padding:'16px 20px 32px'}}>
+            <div style={{width:40,height:4,borderRadius:2,background:'#E5E3D8',margin:'0 auto 20px'}}/>
+            <p style={{fontFamily:'Space Grotesk,sans-serif',fontWeight:700,fontSize:18,
+              color:'#1A1A14',margin:'0 0 4px'}}>Corrigir saldo em conta</p>
+            <p style={{fontSize:12,color:'#A8A79E',margin:'0 0 16px'}}>
+              Ajuste para o valor real da sua conta corrente hoje.
+            </p>
+            <MoneyInput value={newConta} onChange={setNewConta} autoFocus/>
+            <div style={{display:'flex',gap:10,marginTop:16}}>
+              <button onClick={()=>setEditingConta(false)}
+                style={{flex:1,padding:'14px',borderRadius:14,border:'none',cursor:'pointer',
+                  background:'#F0EFE9',color:'#857A50',fontSize:14,fontWeight:600}}>
+                Cancelar
+              </button>
+              <button onClick={saveConta}
+                style={{flex:2,padding:'14px',borderRadius:14,border:'none',cursor:'pointer',
+                  background:'#3D3822',color:'#F0D98A',fontSize:14,fontWeight:700}}>
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

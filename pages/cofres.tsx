@@ -60,7 +60,9 @@ function TransferModal({ maxAmount, description, fromCategory, onClose }: Transf
   function confirm() {
     if (!valid) return
     if (type === 'account') {
-      updatePat(dest, bal + amount)
+      // "Conta corrente" já reflete as transações via getBalance() no BalanceCard —
+      // atualizar o patrimônio aqui também contaria o valor em dobro.
+      if (dest !== 'Conta corrente') updatePat(dest, bal + amount)
       addTx({ type:'income', category:'Outras receitas', amount,
         description:`Transferido: ${description} → ${dest}`, date:today })
     } else {
