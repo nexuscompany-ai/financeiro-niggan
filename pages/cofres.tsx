@@ -220,7 +220,9 @@ export default function Cofres() {
 
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(),now.getMonth(),1).toISOString().split('T')[0]
-  const totalGeralMes = transactions.filter(t=>t.type==='income'&&t.date>=startOfMonth).reduce((s,t)=>s+t.amount,0)
+  const cofreKeys = COFRES.map(c=>c.key)
+  const incomesMes = transactions.filter(t=>t.type==='income'&&t.date>=startOfMonth&&cofreKeys.includes(t.category))
+  const totalGeralMes = incomesMes.reduce((s,t)=>s+t.amount,0)
   const totalInvestMes = transactions.filter(t=>t.type==='investment'&&t.date>=startOfMonth).reduce((s,t)=>s+t.amount,0)
   const dizimo = totalGeralMes*0.10
 
@@ -287,7 +289,7 @@ export default function Cofres() {
                   {hidden?'••••••':formatCurrency(totalGeralMes)}
                 </p>
                 <p style={{fontSize:11,color:'#6B6140',marginTop:5,margin:0}}>
-                  {transactions.filter(t=>t.type==='income'&&t.date>=startOfMonth).length} entradas
+                  {incomesMes.length} entrada{incomesMes.length!==1?'s':''}
                 </p>
               </div>
               <div style={{textAlign:'right'}}>
