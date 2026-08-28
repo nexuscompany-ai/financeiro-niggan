@@ -4,12 +4,14 @@ import Icon from './Icon'
 
 export default function BalanceCard({ hidden = false }: { hidden?: boolean }) {
   const getThisMonth = useFinanceStore(s => s.getThisMonth)
+  const getBalance   = useFinanceStore(s => s.getBalance)
   const patrimony    = useFinanceStore(s => s.patrimony)
   const getCreditCardTotal = useFinanceStore(s => s.getCreditCardTotal)
   const syncing      = useFinanceStore(s => s.syncing)
 
   const month        = getThisMonth()
-  const conta        = patrimony.find(p => p.account === 'Conta corrente')?.balance || 0
+  const contaBase     = patrimony.find(p => p.account === 'Conta corrente')?.balance || 0
+  const conta         = contaBase + getBalance()
   const investimentos= patrimony.find(p => p.account === 'C6 Investimentos')?.balance || 0
   const totalCC      = getCreditCardTotal('C6') + getCreditCardTotal('Nubank')
   const fmt          = (v: number) => hidden ? '•••••' : formatCurrency(v)
