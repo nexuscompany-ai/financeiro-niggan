@@ -11,6 +11,8 @@ export default function TransactionInput({ onSubmit }: { onSubmit?: () => void }
   const [description,  setDescription]  = useState('')
   const [error,        setError]        = useState('')
   const addTransaction = useFinanceStore(s => s.addTransaction)
+  const patrimony       = useFinanceStore(s => s.patrimony)
+  const updatePatrimony = useFinanceStore(s => s.updatePatrimony)
 
   const categories = type==='income' ? INCOME_CATEGORIES : type==='investment' ? INVESTMENT_CATEGORIES : EXPENSE_CATEGORIES
 
@@ -28,6 +30,11 @@ export default function TransactionInput({ onSubmit }: { onSubmit?: () => void }
       date: new Date().toISOString().split('T')[0],
       ...(type==='investment' ? { fromCategory } : {}),
     })
+    // Saída rápida sai direto da conta corrente (não há seletor de conta aqui).
+    if (type==='expense') {
+      const conta = patrimony.find(p=>p.account==='Conta corrente')?.balance || 0
+      updatePatrimony('Conta corrente', Math.max(0, conta - amount))
+    }
     setAmount(0); setDescription(''); setError('')
     onSubmit?.()
   }

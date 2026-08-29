@@ -6,7 +6,6 @@ import MoneyInput from './MoneyInput'
 
 export default function BalanceCard({ hidden = false }: { hidden?: boolean }) {
   const getThisMonth = useFinanceStore(s => s.getThisMonth)
-  const getBalance   = useFinanceStore(s => s.getBalance)
   const patrimony    = useFinanceStore(s => s.patrimony)
   const updatePatrimony = useFinanceStore(s => s.updatePatrimony)
   const getCreditCardTotal = useFinanceStore(s => s.getCreditCardTotal)
@@ -16,15 +15,16 @@ export default function BalanceCard({ hidden = false }: { hidden?: boolean }) {
   const [newConta,     setNewConta]     = useState(0)
 
   const month        = getThisMonth()
-  const movimentoMes  = getBalance()
-  const contaBase     = patrimony.find(p => p.account === 'Conta corrente')?.balance || 0
-  const conta         = contaBase + movimentoMes
+  // "Conta corrente" é um saldo direto: só muda quando uma ação explícita
+  // (débito rápido, pagar conta/cartão, transferir de um cofre, ou correção
+  // manual aqui) mexe nela — nunca por soma automática das entradas do mês.
+  const conta         = patrimony.find(p => p.account === 'Conta corrente')?.balance || 0
   const investimentos= patrimony.find(p => p.account === 'C6 Investimentos')?.balance || 0
   const totalCC      = getCreditCardTotal('C6') + getCreditCardTotal('Nubank')
   const fmt          = (v: number) => hidden ? '•••••' : formatCurrency(v)
 
   const openEditConta = () => { setNewConta(Math.max(0, conta)); setEditingConta(true) }
-  const saveConta = () => { updatePatrimony('Conta corrente', newConta - movimentoMes); setEditingConta(false) }
+  const saveConta = () => { updatePatrimony('Conta corrente', newConta); setEditingConta(false) }
 
   const now = new Date()
   const monthName = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })

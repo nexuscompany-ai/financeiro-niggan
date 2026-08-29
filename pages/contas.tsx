@@ -53,9 +53,7 @@ export default function Contas() {
     const acct = PAY_ACCOUNTS.find(a=>a.key===payAcct)!
     addTx({type:'expense',category:b.category||'Outras despesas',amount:b.amount,
       description:`${b.description} — pago via ${acct.label}`,date:today})
-    // "Conta corrente" já reflete as transações via getBalance() no BalanceCard —
-    // atualizar o patrimônio aqui também contaria o valor em dobro.
-    if (payAcct !== 'Conta corrente') updatePat(payAcct, Math.max(0,bal-b.amount))
+    updatePat(payAcct, Math.max(0,bal-b.amount))
     setPayId(null)
   }
 
@@ -208,24 +206,24 @@ export default function Contas() {
               </div>
             ) : (
               /* Normal */
-              <div style={{display:'flex',alignItems:'center',padding:'14px 16px',gap:12,
-                opacity:b.past?0.55:1}}>
-                <div style={{width:40,height:40,borderRadius:12,flexShrink:0,
-                  background:b.past?'#F0F0F0':'#F0EFE9',
-                  border:`1px solid ${b.past?'#E5E3D8':'#D8D4B8'}`,
-                  display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <Icon name="zap" size={17} color={b.past?S.faint:S.muted}/>
+              <div style={{padding:'14px 16px',opacity:b.past?0.6:1}}>
+                <div style={{display:'flex',alignItems:'center',gap:12}}>
+                  <div style={{width:40,height:40,borderRadius:12,flexShrink:0,
+                    background:b.past?'#F0F0F0':'#F0EFE9',
+                    border:`1px solid ${b.past?'#E5E3D8':'#D8D4B8'}`,
+                    display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <Icon name="zap" size={17} color={b.past?S.faint:S.muted}/>
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <p style={{fontSize:15,fontWeight:700,color:S.text,margin:0}}>{b.description}</p>
+                    <p style={{fontSize:12,fontWeight:600,color:S.muted,margin:'2px 0 0'}}>
+                      Dia {b.dueDay} · {b.category}
+                      {b.past&&<span style={{color:S.green}}> · Passado</span>}
+                    </p>
+                  </div>
+                  <p style={{fontSize:16,fontWeight:700,color:S.red,flexShrink:0}}>{formatCurrency(b.amount)}</p>
                 </div>
-                <div style={{flex:1,minWidth:0}}>
-                  <p style={{fontSize:15,fontWeight:600,color:S.text,margin:0,
-                    overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{b.description}</p>
-                  <p style={{fontSize:12,color:S.faint,margin:'2px 0 0'}}>
-                    Dia {b.dueDay} · {b.category}
-                    {b.past&&<span style={{color:'#86EFAC'}}> · Passado</span>}
-                  </p>
-                </div>
-                <p style={{fontSize:15,fontWeight:700,color:S.red,flexShrink:0}}>{formatCurrency(b.amount)}</p>
-                <div style={{display:'flex',gap:6,flexShrink:0}}>
+                <div style={{display:'flex',gap:6,justifyContent:'flex-end',marginTop:10}}>
                   <button onClick={()=>{setPayId(b.id);setPayAcct(PAY_ACCOUNTS[0].key)}}
                     style={{width:32,height:32,borderRadius:9,border:'none',cursor:'pointer',
                       background:S.greenBg,display:'flex',alignItems:'center',justifyContent:'center'}}

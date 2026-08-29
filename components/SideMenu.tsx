@@ -36,11 +36,6 @@ export default function SideMenu({ open, onClose }: Props) {
     red:'#C0392B', green:'#2D7A4F', gold:'#8A6D2E',
   }
 
-  const groupStyle: React.CSSProperties = {
-    background:S.surface, borderRadius:20, border:`1px solid ${S.border}`,
-    overflow:'hidden', boxShadow:'0 1px 3px rgba(41,38,21,0.05)',
-  }
-
   const NavRow = ({href,icon,label,value,valueColor,sub,divider}:
     {href:string,icon:string,label:string,value:string,valueColor?:string,sub?:string,divider?:boolean}) => (
     <Link href={href} onClick={onClose} className="pressable"
@@ -107,7 +102,7 @@ export default function SideMenu({ open, onClose }: Props) {
           <div>
             <p style={{fontSize:10,fontWeight:700,color:S.faint,textTransform:'uppercase',
               letterSpacing:'0.08em',margin:'0 0 8px 4px'}}>Finanças</p>
-            <div style={groupStyle}>
+            <div>
               <NavRow href="/contas" icon="zap" label="Contas a pagar"
                 value={formatCurrency(totalBills)} valueColor={S.red}
                 sub={`${bills.filter(b=>b.active&&b.recurring).length} contas fixas`}/>
@@ -133,7 +128,7 @@ export default function SideMenu({ open, onClose }: Props) {
               <div>
                 <p style={{fontSize:10,fontWeight:700,color:S.faint,textTransform:'uppercase',
                   letterSpacing:'0.08em',margin:'0 0 8px 4px'}}>Este mês por fonte</p>
-                <div style={groupStyle}>
+                <div>
                   {activeSources.map((s,i)=>(
                     <div key={s.key}
                       style={{display:'flex',alignItems:'center',padding:'12px 16px',gap:12,

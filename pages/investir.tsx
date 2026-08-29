@@ -17,14 +17,18 @@ const SOURCES = [
 
 export default function Investir() {
   const txs = useFinanceStore(s => s.transactions) ?? []
+  const patrimony       = useFinanceStore(s => s.patrimony)
+  const addTransaction  = useFinanceStore(s => s.addTransaction)
+  const updatePatrimony = useFinanceStore(s => s.updatePatrimony)
 
   const som = new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString().split('T')[0]
   const srcInc = (k:string) => txs.filter(t=>t.type==='income'&&t.category===k&&t.date>=som).reduce((s,t)=>s+t.amount,0)
 
-  const [src,    setSrc]    = useState(SOURCES[0].key)
-  const [total,  setTotal]  = useState(0)
-  const [invest, setInvest] = useState(0)
-  const [result, setResult] = useState<{r:number;i:number;p:number}|null>(null)
+  const [src,       setSrc]       = useState(SOURCES[0].key)
+  const [total,     setTotal]     = useState(0)
+  const [invest,    setInvest]    = useState(0)
+  const [result,    setResult]    = useState<{r:number;i:number;p:number}|null>(null)
+  const [confirmed, setConfirmed] = useState(false)
 
   const selSrc  = SOURCES.find(s=>s.key===src)!
   const autoInc = srcInc(src)
@@ -33,6 +37,17 @@ export default function Investir() {
   function calcular() {
     if (!valid) return
     setResult({r:total-invest,i:invest,p:Math.round((invest/total)*100)})
+    setConfirmed(false)
+  }
+
+  function confirmarAporte() {
+    if (!result || confirmed) return
+    const today = new Date().toISOString().split('T')[0]
+    addTransaction({ type:'investment', category:'Aporte extra', amount:result.i,
+      description:`Aporte — ${selSrc.label}`, date:today, fromCategory:selSrc.key })
+    const investido = patrimony.find(p=>p.account==='C6 Investimentos')?.balance || 0
+    updatePatrimony('C6 Investimentos', investido + result.i)
+    setConfirmed(true)
   }
 
   const S = {
@@ -173,7 +188,23 @@ export default function Investir() {
                 </div>
               ))}
             </div>
-            <button onClick={()=>{setTotal(0);setInvest(0);setResult(null)}}
+            <div style={{padding:'0 14px 14px',borderTop:`1px solid ${selSrc.color}20`}}>
+              {confirmed ? (
+                <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,
+                  padding:'13px',marginTop:14,borderRadius:14,background:'#EBF7F0'}}>
+                  <Icon name="check" size={15} color="#2D7A4F"/>
+                  <span style={{fontSize:13,fontWeight:700,color:'#2D7A4F'}}>Aporte registrado no Investido</span>
+                </div>
+              ) : (
+                <button onClick={confirmarAporte}
+                  style={{width:'100%',marginTop:14,padding:'14px',borderRadius:14,border:'none',cursor:'pointer',
+                    fontSize:14,fontWeight:700,background:S.olive,color:S.oliveL,
+                    boxShadow:'0 4px 14px rgba(41,38,21,0.25)'}}>
+                  Confirmar aporte de {formatCurrency(result.i)}
+                </button>
+              )}
+            </div>
+            <button onClick={()=>{setTotal(0);setInvest(0);setResult(null);setConfirmed(false)}}
               style={{width:'100%',padding:'12px',border:'none',cursor:'pointer',
                 background:'#F8F8F6',color:S.faint,fontSize:12,borderTop:'1px solid #F0EFE9'}}>
               Limpar simulação
