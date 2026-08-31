@@ -8,6 +8,7 @@ export default function BalanceCard({ hidden = false }: { hidden?: boolean }) {
   const getThisMonth = useFinanceStore(s => s.getThisMonth)
   const patrimony    = useFinanceStore(s => s.patrimony)
   const updatePatrimony = useFinanceStore(s => s.updatePatrimony)
+  const getAccountBalance = useFinanceStore(s => s.getAccountBalance)
   const getCreditCardTotal = useFinanceStore(s => s.getCreditCardTotal)
   const syncing      = useFinanceStore(s => s.syncing)
 
@@ -15,16 +16,24 @@ export default function BalanceCard({ hidden = false }: { hidden?: boolean }) {
   const [newConta,     setNewConta]     = useState(0)
 
   const month        = getThisMonth()
-  // "Conta corrente" é um saldo direto: só muda quando uma ação explícita
-  // (débito rápido, pagar conta/cartão, transferir de um cofre, ou correção
-  // manual aqui) mexe nela — nunca por soma automática das entradas do mês.
-  const conta         = patrimony.find(p => p.account === 'Conta corrente')?.balance || 0
-  const investimentos= patrimony.find(p => p.account === 'C6 Investimentos')?.balance || 0
+  // "Conta corrente" é um extrato: patrimônio base + soma de todas as
+  // transações marcadas com essa conta (ver getAccountBalance em
+  // lib/store.ts). Nenhuma tela mexe no valor bruto diretamente.
+  const conta         = getAccountBalance('Conta corrente')
+  const investimentos= getAccountBalance('C6 Investimentos')
   const totalCC      = getCreditCardTotal('C6') + getCreditCardTotal('Nubank')
   const fmt          = (v: number) => hidden ? '•••••' : formatCurrency(v)
 
   const openEditConta = () => { setNewConta(Math.max(0, conta)); setEditingConta(true) }
-  const saveConta = () => { updatePatrimony('Conta corrente', newConta); setEditingConta(false) }
+  const saveConta = () => {
+    // O valor digitado é o saldo final desejado; a base salva precisa
+    // descontar o que o extrato (transações já lançadas) já soma/subtrai,
+    // senão a correção some assim que a próxima transação for computada.
+    const baseline = patrimony.find(p => p.account === 'Conta corrente')?.balance || 0
+    const ledger = conta - baseline
+    updatePatrimony('Conta corrente', newConta - ledger)
+    setEditingConta(false)
+  }
 
   const now = new Date()
   const monthName = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })

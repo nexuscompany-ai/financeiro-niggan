@@ -25,12 +25,11 @@ function activeInMonth(p: CreditCardPurchase, off: number) {
 
 export default function Cartoes() {
   const rawCards  = useFinanceStore(s => s.creditCardPurchases)
-  const patrimony = useFinanceStore(s => s.patrimony)
   const addCC     = useFinanceStore(s => s.addCreditCardPurchase)
   const updateCC  = useFinanceStore(s => s.updateCreditCardPurchase)
   const removeCC  = useFinanceStore(s => s.removeCreditCardPurchase)
   const addTx     = useFinanceStore(s => s.addTransaction)
-  const updatePat = useFinanceStore(s => s.updatePatrimony)
+  const getAccountBalance = useFinanceStore(s => s.getAccountBalance)
 
   const cards = rawCards ?? []
   const [mOff,    setMOff]    = useState(0)
@@ -49,18 +48,16 @@ export default function Cartoes() {
   const totalNu = nuList.reduce((s,p)=>s+p.monthlyAmount,0)
   const totalCC = totalC6+totalNu
 
-  const getBalance = (k:string) => (patrimony??[]).find(p=>p.account===k)?.balance??0
+  const getBalance = (k:string) => getAccountBalance(k)
   const today = new Date().toISOString().split('T')[0]
 
   function confirmPay() {
     const amt  = payCard==='C6'?totalC6:totalNu
     const list = payCard==='C6'?c6List:nuList
     const acct = PAY_ACCOUNTS.find(a=>a.key===payAcct)!
-    const bal  = getBalance(payAcct)
     // Registra saída e desconta da conta bancária
     addTx({type:'expense',category:'Cartão de Crédito',amount:amt,
-      description:`Fatura ${payCard} — ${mLabel(mOff)} — via ${acct.label}`,date:today})
-    updatePat(payAcct,Math.max(0,bal-amt))
+      description:`Fatura ${payCard} — ${mLabel(mOff)} — via ${acct.label}`,date:today,account:payAcct})
     // Remove ou avança parcelas do cartão pago
     list.forEach(p => {
       if (p.currentInstallment >= p.installments) {

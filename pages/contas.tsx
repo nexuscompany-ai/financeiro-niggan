@@ -37,12 +37,11 @@ function dueLabel(b: BillMeta, mOff: number) {
 
 export default function Contas() {
   const rawBills  = useFinanceStore(s => s.bills)
-  const patrimony = useFinanceStore(s => s.patrimony)
   const addBill   = useFinanceStore(s => s.addBill)
   const updateBill= useFinanceStore(s => s.updateBill)
   const removeBill= useFinanceStore(s => s.removeBill)
-  const updatePat = useFinanceStore(s => s.updatePatrimony)
   const addTx     = useFinanceStore(s => s.addTransaction)
+  const getAccountBalance = useFinanceStore(s => s.getAccountBalance)
 
   const bills = rawBills ?? []
   const [mOff,         setMOff]         = useState(0)
@@ -69,7 +68,7 @@ export default function Contas() {
   ,[bills,mOff])
 
   const total = activeBills.reduce((s,b)=>s+b.amount,0)
-  const getBalance = (k:string) => (patrimony??[]).find(p=>p.account===k)?.balance??0
+  const getBalance = (k:string) => getAccountBalance(k)
   const todayStr = new Date().toISOString().split('T')[0]
 
   const overdue = activeBills.filter(b=>b.bucket==='overdue').sort((a,b)=>a.days-b.days)
@@ -94,11 +93,9 @@ export default function Contas() {
 
   function confirmPay() {
     if (!selected) return
-    const bal = getBalance(payAcct)
     const acct = PAY_ACCOUNTS.find(a=>a.key===payAcct)!
     addTx({type:'expense',category:selected.category||'Outras despesas',amount:selected.amount,
-      description:`${selected.description} — pago via ${acct.label}`,date:todayStr})
-    updatePat(payAcct, Math.max(0,bal-selected.amount))
+      description:`${selected.description} — pago via ${acct.label}`,date:todayStr,account:payAcct})
     closeSheet()
   }
 

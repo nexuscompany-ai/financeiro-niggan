@@ -17,9 +17,7 @@ const SOURCES = [
 
 export default function Investir() {
   const txs = useFinanceStore(s => s.transactions) ?? []
-  const patrimony       = useFinanceStore(s => s.patrimony)
   const addTransaction  = useFinanceStore(s => s.addTransaction)
-  const updatePatrimony = useFinanceStore(s => s.updatePatrimony)
 
   const som = new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString().split('T')[0]
   const srcInc = (k:string) => txs.filter(t=>t.type==='income'&&t.category===k&&t.date>=som).reduce((s,t)=>s+t.amount,0)
@@ -43,13 +41,11 @@ export default function Investir() {
   function confirmarAporte() {
     if (!result || confirmed) return
     const today = new Date().toISOString().split('T')[0]
+    // O aporte sai da conta corrente (a entrada já tinha somado lá antes)
+    // e entra em C6 Investimentos — a transação carrega os dois lados.
     addTransaction({ type:'investment', category:'Aporte extra', amount:result.i,
-      description:`Aporte — ${selSrc.label}`, date:today, fromCategory:selSrc.key })
-    const investido = patrimony.find(p=>p.account==='C6 Investimentos')?.balance || 0
-    updatePatrimony('C6 Investimentos', investido + result.i)
-    // O aporte sai da conta corrente (a entrada já tinha somado lá antes).
-    const conta = patrimony.find(p=>p.account==='Conta corrente')?.balance || 0
-    updatePatrimony('Conta corrente', Math.max(0, conta - result.i))
+      description:`Aporte — ${selSrc.label}`, date:today, fromCategory:selSrc.key,
+      account:'Conta corrente', toAccount:'C6 Investimentos' })
     setConfirmed(true)
   }
 

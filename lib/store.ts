@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type TransactionType = 'income' | 'expense' | 'investment'
+export type TransactionType = 'income' | 'expense' | 'investment' | 'transfer'
 
 export interface Transaction {
   id: string
@@ -11,6 +11,13 @@ export interface Transaction {
   date: string
   fromCategory?: string
   creditCard?: string
+  // Conta de patrimônio afetada por esta transação (ex: "Conta corrente").
+  // income: soma em `account`. expense: subtrai de `account`.
+  // investment/transfer: subtrai de `account`, soma em `toAccount`.
+  // Transações sem `account` (ex: histórico antigo) não afetam nenhum saldo —
+  // é assim que o saldo de cada conta vira um extrato, não um número solto.
+  account?: string
+  toAccount?: string
 }
 
 export interface CreditCardPurchase {
@@ -86,6 +93,7 @@ export interface FinanceState {
   getTotalPatrimony: () => number
   getCreditCardTotal: (card: 'C6' | 'Nubank') => number
   getActiveBills: () => Bill[]
+  getAccountBalance: (account: string) => number
 
   // Sync
   load: () => Promise<void>
@@ -174,6 +182,20 @@ function daysAgo(n: number): string {
 function currentYearMonth(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+}
+
+// Efeito de uma transação sobre o saldo de `account` — é isto que faz o
+// saldo virar um extrato (soma do histórico) em vez de um número solto.
+function accountEffect(t: Transaction, account: string): number {
+  if (t.type === 'income' && t.account === account) return t.amount
+  if (t.type === 'expense' && t.account === account) return -t.amount
+  if (t.type === 'investment' || t.type === 'transfer') {
+    let e = 0
+    if (t.account === account) e -= t.amount
+    if (t.toAccount === account) e += t.amount
+    return e
+  }
+  return 0
 }
 
 // ─── Supabase sync ────────────────────────────────────────────────────────────
@@ -394,12 +416,18 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
     return m.income - m.expense - m.investment
   },
 
-  getTotalPatrimony: () => get().patrimony.reduce((s,p)=>s+p.balance,0),
+  getTotalPatrimony: () => get().patrimony.reduce((s,p)=>s+get().getAccountBalance(p.account),0),
 
   getCreditCardTotal: (card) =>
     get().creditCardPurchases.filter(p=>p.card===card).reduce((s,p)=>s+p.monthlyAmount,0),
 
   getActiveBills: () => get().bills.filter(b=>b.active),
+
+  getAccountBalance: (account) => {
+    const baseline = get().patrimony.find(p=>p.account===account)?.balance || 0
+    const ledger = get().transactions.reduce((s,t)=>s+accountEffect(t,account),0)
+    return baseline + ledger
+  },
 
   getToday: () => {
     const today = new Date().toISOString().split('T')[0]

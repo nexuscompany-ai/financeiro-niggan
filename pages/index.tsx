@@ -21,8 +21,6 @@ export default function Home() {
   const load             = useFinanceStore(s => s.load)
   const transactions     = useFinanceStore(s => s.transactions)
   const addTransaction   = useFinanceStore(s => s.addTransaction)
-  const patrimony        = useFinanceStore(s => s.patrimony)
-  const updatePatrimony  = useFinanceStore(s => s.updatePatrimony)
 
   useEffect(() => {
     load().then(() => {
@@ -60,9 +58,8 @@ export default function Home() {
         amount: val,
         description: 'Rendimento semanal TikTok Shop',
         date: new Date().toISOString().split('T')[0],
+        account: 'Conta corrente',
       })
-      const conta = patrimony.find(p=>p.account==='Conta corrente')?.balance || 0
-      updatePatrimony('Conta corrente', conta + val)
     }
     setShowTiktok(false)
     setTiktokAmount('')

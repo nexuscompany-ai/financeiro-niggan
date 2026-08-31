@@ -5,7 +5,7 @@ import { formatCurrency, formatDate, INCOME_CATEGORIES, EXPENSE_CATEGORIES, INVE
 import Icon, { CATEGORY_ICON } from './Icon'
 
 type FilterType = 'month'|'today'|'7days'|'income'|'expense'|'investment'|'all'
-const ALL_CATS = [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES, ...INVESTMENT_CATEGORIES, 'Imprevistos']
+const ALL_CATS = [...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES, ...INVESTMENT_CATEGORIES, 'Transferência']
 
 export default function TransactionsList({ hidden = false }: { hidden?: boolean }) {
   const transactions = useFinanceStore(s => s.transactions)
@@ -50,9 +50,9 @@ export default function TransactionsList({ hidden = false }: { hidden?: boolean 
     setEditingId(null); setEditData({})
   }
 
-  const typeColor = (t: string) => t==='income'?'#2D7A4F':t==='investment'?'#8A6D2E':'#C0392B'
-  const typeBg   = (t: string) => t==='income'?'#EBF7F0':t==='investment'?'#FAF3E1':'#FCECEA'
-  const typeSign  = (t: string) => t==='income'?'+':t==='investment'?'↗':'-'
+  const typeColor = (t: string) => t==='income'?'#2D7A4F':t==='investment'?'#8A6D2E':t==='transfer'?'#6B6140':'#C0392B'
+  const typeBg   = (t: string) => t==='income'?'#EBF7F0':t==='investment'?'#FAF3E1':t==='transfer'?'#F0EFE9':'#FCECEA'
+  const typeSign  = (t: string) => t==='income'?'+':t==='investment'?'↗':t==='transfer'?'↔':'-'
 
   const FILTERS: { key: FilterType; label: string }[] = [
     { key:'month', label:'Este mês' },
@@ -110,7 +110,7 @@ export default function TransactionsList({ hidden = false }: { hidden?: boolean 
               <p className="text-xs font-semibold" style={{ color:'#A8A79E' }}>{formatDate(date)}</p>
               <div className="flex-1 h-px" style={{ background:'#F0EFE9' }} />
               <p className="text-xs font-semibold tabular" style={{ color:'#C8C5B8' }}>
-                {fmt(grouped[date].reduce((s,t)=>t.type==='income'?s+t.amount:s-t.amount,0))}
+                {fmt(grouped[date].reduce((s,t)=>t.type==='income'?s+t.amount:t.type==='transfer'?s:s-t.amount,0))}
               </p>
             </div>
 
@@ -163,7 +163,7 @@ export default function TransactionsList({ hidden = false }: { hidden?: boolean 
                       <div onClick={()=>setExpandedId(expandedId===tx.id?null:tx.id)} className="flex items-center gap-3 p-3.5 cursor-pointer pressable">
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                           style={{ background: typeBg(tx.type) }}>
-                          <Icon name={CATEGORY_ICON[tx.category] || (tx.type==='income'?'coins':tx.type==='investment'?'invest':'package')}
+                          <Icon name={CATEGORY_ICON[tx.category] || (tx.type==='income'?'coins':tx.type==='investment'?'invest':tx.type==='transfer'?'arrowRight':'package')}
                             size={18} color={typeColor(tx.type)} />
                         </div>
                         <div className="flex-1 min-w-0">

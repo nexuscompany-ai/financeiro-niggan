@@ -11,8 +11,6 @@ export default function TransactionInput({ onSubmit }: { onSubmit?: () => void }
   const [description,  setDescription]  = useState('')
   const [error,        setError]        = useState('')
   const addTransaction = useFinanceStore(s => s.addTransaction)
-  const patrimony       = useFinanceStore(s => s.patrimony)
-  const updatePatrimony = useFinanceStore(s => s.updatePatrimony)
 
   const categories = type==='income' ? INCOME_CATEGORIES : type==='investment' ? INVESTMENT_CATEGORIES : EXPENSE_CATEGORIES
 
@@ -25,23 +23,15 @@ export default function TransactionInput({ onSubmit }: { onSubmit?: () => void }
     e.preventDefault()
     if (!amount || amount <= 0) { setError('Valor inválido'); return }
     if (!description.trim()) { setError('Adicione uma descrição'); return }
+    // Não há seletor de conta aqui — toda entrada/saída/investimento rápido
+    // acontece na conta corrente. `account`/`toAccount` é o que faz essa
+    // transação contar pro saldo (ver getAccountBalance em lib/store.ts).
     addTransaction({
       type, category, amount, description: description.trim(),
       date: new Date().toISOString().split('T')[0],
-      ...(type==='investment' ? { fromCategory } : {}),
+      account: 'Conta corrente',
+      ...(type==='investment' ? { fromCategory, toAccount:'C6 Investimentos' } : {}),
     })
-    // Não há seletor de conta aqui — toda entrada/saída/investimento rápido
-    // mexe direto na conta corrente (entrada soma, saída e investimento sobem).
-    const conta = patrimony.find(p=>p.account==='Conta corrente')?.balance || 0
-    if (type==='expense' || type==='investment') {
-      updatePatrimony('Conta corrente', Math.max(0, conta - amount))
-    } else if (type==='income') {
-      updatePatrimony('Conta corrente', conta + amount)
-    }
-    if (type==='investment') {
-      const investido = patrimony.find(p=>p.account==='C6 Investimentos')?.balance || 0
-      updatePatrimony('C6 Investimentos', investido + amount)
-    }
     setAmount(0); setDescription(''); setError('')
     onSubmit?.()
   }

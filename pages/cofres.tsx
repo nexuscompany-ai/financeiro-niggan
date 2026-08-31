@@ -43,15 +43,14 @@ interface TransferModalProps {
 }
 
 function TransferModal({ maxAmount, description, fromCategory, onClose }: TransferModalProps) {
-  const patrimony = useFinanceStore(s => s.patrimony)
-  const updatePat = useFinanceStore(s => s.updatePatrimony)
-  const addTx     = useFinanceStore(s => s.addTransaction)
+  const addTx = useFinanceStore(s => s.addTransaction)
+  const getAccountBalance = useFinanceStore(s => s.getAccountBalance)
 
   const [type,   setType]   = useState<'account'|'investment'>('account')
   const [dest,   setDest]   = useState(TRANSFER_DESTINATIONS[0].key)
   const [amount, setAmount] = useState(maxAmount)
 
-  const getBalance = (acct: string) => (patrimony??[]).find(p=>p.account===acct)?.balance??0
+  const getBalance = (acct: string) => getAccountBalance(acct)
   const today = new Date().toISOString().split('T')[0]
   const destInfo = TRANSFER_DESTINATIONS.find(d=>d.key===dest)!
   const bal = getBalance(dest)
@@ -62,19 +61,17 @@ function TransferModal({ maxAmount, description, fromCategory, onClose }: Transf
     if (type === 'account') {
       // A entrada já soma na conta corrente assim que é lançada — "transferir"
       // aqui é só realocar esse valor da conta corrente para outra conta.
-      // Não lança uma nova transação de entrada (isso contaria o dinheiro 2x).
+      // Não é uma nova entrada (isso contaria o dinheiro 2x): é uma transação
+      // do tipo "transfer", que não entra nas estatísticas de Entrou/Saiu.
       if (dest !== 'Conta corrente') {
-        const conta = getBalance('Conta corrente')
-        updatePat('Conta corrente', Math.max(0, conta - amount))
-        updatePat(dest, bal + amount)
+        addTx({ type:'transfer', category:'Transferência', amount,
+          description:`Transferido: ${description} → ${dest}`, date:today,
+          account:'Conta corrente', toAccount:dest })
       }
     } else {
       addTx({ type:'investment', category:'CDB / Reserva', amount,
-        description:`Investimento de ${description}`, date:today, fromCategory })
-      const conta = getBalance('Conta corrente')
-      updatePat('Conta corrente', Math.max(0, conta - amount))
-      const investido = getBalance('C6 Investimentos')
-      updatePat('C6 Investimentos', investido + amount)
+        description:`Investimento de ${description}`, date:today, fromCategory,
+        account:'Conta corrente', toAccount:'C6 Investimentos' })
     }
     onClose()
   }
