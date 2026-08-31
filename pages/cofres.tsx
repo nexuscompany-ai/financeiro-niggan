@@ -60,12 +60,21 @@ function TransferModal({ maxAmount, description, fromCategory, onClose }: Transf
   function confirm() {
     if (!valid) return
     if (type === 'account') {
-      updatePat(dest, bal + amount)
-      addTx({ type:'income', category:'Outras receitas', amount,
-        description:`Transferido: ${description} → ${dest}`, date:today })
+      // A entrada já soma na conta corrente assim que é lançada — "transferir"
+      // aqui é só realocar esse valor da conta corrente para outra conta.
+      // Não lança uma nova transação de entrada (isso contaria o dinheiro 2x).
+      if (dest !== 'Conta corrente') {
+        const conta = getBalance('Conta corrente')
+        updatePat('Conta corrente', Math.max(0, conta - amount))
+        updatePat(dest, bal + amount)
+      }
     } else {
       addTx({ type:'investment', category:'CDB / Reserva', amount,
         description:`Investimento de ${description}`, date:today, fromCategory })
+      const conta = getBalance('Conta corrente')
+      updatePat('Conta corrente', Math.max(0, conta - amount))
+      const investido = getBalance('C6 Investimentos')
+      updatePat('C6 Investimentos', investido + amount)
     }
     onClose()
   }

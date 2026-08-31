@@ -47,6 +47,9 @@ export default function Investir() {
       description:`Aporte — ${selSrc.label}`, date:today, fromCategory:selSrc.key })
     const investido = patrimony.find(p=>p.account==='C6 Investimentos')?.balance || 0
     updatePatrimony('C6 Investimentos', investido + result.i)
+    // O aporte sai da conta corrente (a entrada já tinha somado lá antes).
+    const conta = patrimony.find(p=>p.account==='Conta corrente')?.balance || 0
+    updatePatrimony('Conta corrente', Math.max(0, conta - result.i))
     setConfirmed(true)
   }
 

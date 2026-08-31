@@ -30,10 +30,17 @@ export default function TransactionInput({ onSubmit }: { onSubmit?: () => void }
       date: new Date().toISOString().split('T')[0],
       ...(type==='investment' ? { fromCategory } : {}),
     })
-    // Saída rápida sai direto da conta corrente (não há seletor de conta aqui).
-    if (type==='expense') {
-      const conta = patrimony.find(p=>p.account==='Conta corrente')?.balance || 0
+    // Não há seletor de conta aqui — toda entrada/saída/investimento rápido
+    // mexe direto na conta corrente (entrada soma, saída e investimento sobem).
+    const conta = patrimony.find(p=>p.account==='Conta corrente')?.balance || 0
+    if (type==='expense' || type==='investment') {
       updatePatrimony('Conta corrente', Math.max(0, conta - amount))
+    } else if (type==='income') {
+      updatePatrimony('Conta corrente', conta + amount)
+    }
+    if (type==='investment') {
+      const investido = patrimony.find(p=>p.account==='C6 Investimentos')?.balance || 0
+      updatePatrimony('C6 Investimentos', investido + amount)
     }
     setAmount(0); setDescription(''); setError('')
     onSubmit?.()
