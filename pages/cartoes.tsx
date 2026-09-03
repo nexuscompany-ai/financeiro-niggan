@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import useFinanceStore, { CreditCardPurchase } from '@/lib/store'
 import { formatCurrency } from '@/lib/utils'
 import Icon from '@/components/Icon'
 import MoneyInput from '@/components/MoneyInput'
+import { installmentsLeft as instLeft, isBilledInMonth, isPaidForMonth, openPurchasesForMonth } from '@/lib/creditCards'
 
 const PAY_ACCOUNTS = [
   { key:'Conta corrente',   label:'Conta corrente',   icon:'wallet',    color:'#292615' },
@@ -17,18 +18,12 @@ function mLabel(off: number) {
   return d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})
 }
 
-function instLeft(p: CreditCardPurchase) { return p.installments - p.currentInstallment + 1 }
-function activeInMonth(p: CreditCardPurchase, off: number) {
-  if (p.installments <= 1) return true
-  return instLeft(p) > off
-}
-
 export default function Cartoes() {
   const rawCards  = useFinanceStore(s => s.creditCardPurchases)
   const addCC     = useFinanceStore(s => s.addCreditCardPurchase)
   const updateCC  = useFinanceStore(s => s.updateCreditCardPurchase)
   const removeCC  = useFinanceStore(s => s.removeCreditCardPurchase)
-  const addTx     = useFinanceStore(s => s.addTransaction)
+  const payCreditCardBill = useFinanceStore(s => s.payCreditCardBill)
   const getAccountBalance = useFinanceStore(s => s.getAccountBalance)
 
   const cards = rawCards ?? []
@@ -39,33 +34,38 @@ export default function Cartoes() {
   const [showPay, setShowPay] = useState(false)
   const [payCard, setPayCard] = useState<'C6'|'Nubank'>('C6')
   const [payAcct, setPayAcct] = useState(PAY_ACCOUNTS[0].key)
+  const [paying,  setPaying]  = useState(false)
+  const payingRef = useRef(false)
 
-  const c6List = useMemo(()=>cards.filter(p=>p.card==='C6'&&activeInMonth(p,mOff)),[cards,mOff])
-  const nuList = useMemo(()=>cards.filter(p=>p.card==='Nubank'&&activeInMonth(p,mOff)),[cards,mOff])
+  // Lista de exibição: tudo faturado nesse mês (calendário), pago ou não.
+  const c6List = useMemo(()=>cards.filter(p=>p.card==='C6'&&isBilledInMonth(p,mOff)),[cards,mOff])
+  const nuList = useMemo(()=>cards.filter(p=>p.card==='Nubank'&&isBilledInMonth(p,mOff)),[cards,mOff])
 
-  // Valor da fatura para o mês selecionado
-  const totalC6 = c6List.reduce((s,p)=>s+p.monthlyAmount,0)
-  const totalNu = nuList.reduce((s,p)=>s+p.monthlyAmount,0)
+  // Valor a pagar: só o que está faturado E ainda não foi pago — é o mesmo
+  // cálculo que payCreditCardBill usa, então o botão nunca cobra de novo o
+  // que já foi quitado.
+  const totalC6 = useMemo(()=>openPurchasesForMonth(cards,'C6',mOff).reduce((s,p)=>s+p.monthlyAmount,0),[cards,mOff])
+  const totalNu = useMemo(()=>openPurchasesForMonth(cards,'Nubank',mOff).reduce((s,p)=>s+p.monthlyAmount,0),[cards,mOff])
   const totalCC = totalC6+totalNu
 
   const getBalance = (k:string) => getAccountBalance(k)
-  const today = new Date().toISOString().split('T')[0]
 
+  function openPay() {
+    payingRef.current = false
+    setPaying(false)
+    setPayCard(totalC6>0?'C6':'Nubank')
+    setShowPay(true)
+  }
+
+  // Trava contra clique duplo: o ref é síncrono (não depende de re-render),
+  // então mesmo dois toques bem rápidos (ou o clique "grudando") não disparam
+  // o pagamento duas vezes. Só é resetado quando o modal é reaberto.
   function confirmPay() {
-    const amt  = payCard==='C6'?totalC6:totalNu
-    const list = payCard==='C6'?c6List:nuList
+    if (payingRef.current) return
+    payingRef.current = true
+    setPaying(true)
     const acct = PAY_ACCOUNTS.find(a=>a.key===payAcct)!
-    // Registra saída e desconta da conta bancária
-    addTx({type:'expense',category:'Cartão de Crédito',amount:amt,
-      description:`Fatura ${payCard} — ${mLabel(mOff)} — via ${acct.label}`,date:today,account:payAcct})
-    // Remove ou avança parcelas do cartão pago
-    list.forEach(p => {
-      if (p.currentInstallment >= p.installments) {
-        removeCC(p.id)
-      } else {
-        updateCC(p.id, { currentInstallment: p.currentInstallment + 1 })
-      }
-    })
+    payCreditCardBill(payCard, payAcct, acct.label)
     setShowPay(false)
   }
 
@@ -79,7 +79,9 @@ export default function Cartoes() {
       width:'100%',boxSizing:'border-box' as const,outline:'none'},
   }
 
-  const CardRow = ({p}:{p:CreditCardPurchase}) => (
+  const CardRow = ({p}:{p:CreditCardPurchase}) => {
+    const paid = isPaidForMonth(p, mOff)
+    return (
     <div>
       {editCC?.id===p.id ? (
         <div style={{padding:'12px 16px',borderTop:S.border,display:'flex',flexDirection:'column',gap:10}}>
@@ -100,17 +102,17 @@ export default function Cartoes() {
         </div>
       ) : (
         <div style={{display:'flex',alignItems:'center',padding:'12px 16px',
-          borderTop:S.border,gap:10}}>
+          borderTop:S.border,gap:10,opacity:paid?0.55:1}}>
           <div style={{flex:1,minWidth:0}}>
             <p style={{fontSize:14,fontWeight:600,color:S.text,margin:0,
               overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.description}</p>
             <p style={{fontSize:11,color:S.faint,margin:'3px 0 0'}}>
               {p.installments>1
                 ?`${p.currentInstallment}/${p.installments}× · ${instLeft(p)} restante${instLeft(p)!==1?'s':''}`
-                :'À vista'}{' · '}{p.category}
+                :'À vista'}{' · '}{p.category}{paid?' · paga':''}
             </p>
           </div>
-          <p style={{fontSize:14,fontWeight:700,color:S.red,flexShrink:0}}>{formatCurrency(p.monthlyAmount)}</p>
+          <p style={{fontSize:14,fontWeight:700,color:paid?S.green:S.red,flexShrink:0}}>{formatCurrency(p.monthlyAmount)}</p>
           <div style={{display:'flex',gap:5,flexShrink:0}}>
             <button onClick={()=>setEditCC(p)}
               style={{width:30,height:30,borderRadius:9,border:'none',cursor:'pointer',
@@ -126,7 +128,7 @@ export default function Cartoes() {
         </div>
       )}
     </div>
-  )
+  )}
 
   return (
     <div style={{minHeight:'100vh',background:'#F8F8F6',fontFamily:'Inter,system-ui,sans-serif'}}>
@@ -164,14 +166,24 @@ export default function Cartoes() {
           <p style={{fontSize:11,fontWeight:600,color:S.faint,margin:'0 0 4px'}}>Total em cartões — {mLabel(mOff)}</p>
           <p style={{fontFamily:'Space Grotesk,sans-serif',fontWeight:700,fontSize:28,
             color:S.red,margin:'0 0 12px',lineHeight:1}}>{formatCurrency(totalCC)}</p>
-          <button onClick={()=>setShowPay(!showPay)}
-            style={{width:'100%',padding:'12px',borderRadius:12,border:'none',cursor:'pointer',
-              fontWeight:700,fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',gap:8,
-              ...(showPay?{background:'#F0EFE9',color:S.muted}:{background:S.olive,color:S.oliveL,
-                boxShadow:'0 4px 12px rgba(41,38,21,0.25)'})}}>
-            <Icon name="creditCard" size={16} color={showPay?S.muted:S.oliveL}/>
-            Pagar fatura
-          </button>
+          {mOff!==0 ? (
+            <p style={{fontSize:12,color:S.faint,textAlign:'center',margin:0}}>
+              Só dá pra pagar a fatura do mês atual
+            </p>
+          ) : totalCC<=0 ? (
+            <p style={{fontSize:12,color:S.green,textAlign:'center',margin:0,fontWeight:600}}>
+              Fatura deste mês já está paga ✓
+            </p>
+          ) : (
+            <button onClick={()=>showPay?setShowPay(false):openPay()}
+              style={{width:'100%',padding:'12px',borderRadius:12,border:'none',cursor:'pointer',
+                fontWeight:700,fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',gap:8,
+                ...(showPay?{background:'#F0EFE9',color:S.muted}:{background:S.olive,color:S.oliveL,
+                  boxShadow:'0 4px 12px rgba(41,38,21,0.25)'})}}>
+              <Icon name="creditCard" size={16} color={showPay?S.muted:S.oliveL}/>
+              Pagar fatura
+            </button>
+          )}
         </div>
 
         {/* Pay card */}
@@ -184,19 +196,23 @@ export default function Cartoes() {
               <p style={{fontSize:11,fontWeight:700,color:S.muted,textTransform:'uppercase',
                 letterSpacing:'0.06em',margin:'0 0 8px'}}>Cartão</p>
               <div style={{display:'flex',gap:8}}>
-                {(['C6','Nubank'] as const).map(c=>(
-                  <button key={c} onClick={()=>setPayCard(c)}
-                    style={{flex:1,padding:'12px 8px',borderRadius:12,border:'none',cursor:'pointer',
-                      fontWeight:700,fontSize:13,
+                {(['C6','Nubank'] as const).map(c=>{
+                  const cTotal = c==='C6'?totalC6:totalNu
+                  const zero = cTotal<=0
+                  return (
+                  <button key={c} onClick={()=>!zero&&setPayCard(c)} disabled={zero}
+                    style={{flex:1,padding:'12px 8px',borderRadius:12,border:'none',
+                      cursor:zero?'default':'pointer',
+                      fontWeight:700,fontSize:13,opacity:zero?0.45:1,
                       ...(payCard===c
                         ?{background:c==='C6'?'#111':'#820AD1',color:c==='C6'?'#C9A84C':'#fff'}
                         :{background:'#F0EFE9',color:S.muted})}}>
                     {c==='C6'?'C6 Black':'Nubank'}
                     <span style={{display:'block',fontWeight:400,fontSize:12,marginTop:3,opacity:0.8}}>
-                      {formatCurrency(c==='C6'?totalC6:totalNu)}
+                      {zero?'Já paga':formatCurrency(cTotal)}
                     </span>
                   </button>
-                ))}
+                )})}
               </div>
             </div>
 
@@ -237,13 +253,17 @@ export default function Cartoes() {
             </div>
 
             <div style={{display:'flex',gap:8}}>
-              <button onClick={()=>setShowPay(false)}
+              <button onClick={()=>setShowPay(false)} disabled={paying}
                 style={{flex:1,padding:'12px',borderRadius:12,border:'none',cursor:'pointer',
-                  background:'#F0EFE9',color:S.muted,fontSize:13}}>Cancelar</button>
-              <button onClick={confirmPay}
-                style={{flex:2,padding:'12px',borderRadius:12,border:'none',cursor:'pointer',
+                  background:'#F0EFE9',color:S.muted,fontSize:13,opacity:paying?0.6:1}}>Cancelar</button>
+              <button onClick={confirmPay} disabled={paying||(payCard==='C6'?totalC6:totalNu)<=0}
+                style={{flex:2,padding:'12px',borderRadius:12,border:'none',
+                  cursor:paying?'default':'pointer',
                   background:S.green,color:'#fff',fontSize:13,fontWeight:700,
-                  boxShadow:'0 3px 10px rgba(45,122,79,0.25)'}}>Confirmar</button>
+                  opacity:paying||(payCard==='C6'?totalC6:totalNu)<=0?0.5:1,
+                  boxShadow:'0 3px 10px rgba(45,122,79,0.25)'}}>
+                {paying?'Pagando...':'Confirmar'}
+              </button>
             </div>
           </div>
         )}

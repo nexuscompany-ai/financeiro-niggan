@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import useFinanceStore, { Bill } from '@/lib/store'
 import { formatCurrency } from '@/lib/utils'
 import Icon from '@/components/Icon'
 import MoneyInput from '@/components/MoneyInput'
+import { CARD_DUE_DAY, CARD_LABEL, openPurchasesForMonth } from '@/lib/creditCards'
 
 const PAY_ACCOUNTS = [
   { key:'Conta corrente',   label:'Conta corrente',   icon:'wallet',    color:'#292615' },
@@ -20,14 +21,28 @@ function mLabel(off: number) {
 }
 
 type Bucket = 'overdue'|'today'|'soon'|'later'
+type Kind = 'bill'|'card'
 
-interface BillMeta extends Bill {
+// Um item pagável genérico — conta fixa OU fatura de cartão, unificados numa
+// única lista/agenda. `card`/`purchaseCount` só existem em itens kind==='card';
+// `paid` só é calculado pra kind==='bill' (fatura de cartão paga simplesmente
+// some da lista, porque o valor em aberto vira 0 — ver cardItems).
+interface PayableItem {
+  id: string
+  kind: Kind
+  description: string
+  amount: number
+  dueDay: number
+  category: string
   due: Date
   days: number
   bucket: Bucket
+  card?: 'C6'|'Nubank'
+  purchaseCount?: number
+  paid?: boolean
 }
 
-function dueLabel(b: BillMeta, mOff: number) {
+function dueLabel(b: {dueDay:number; days:number}, mOff: number) {
   if (mOff !== 0) return `Dia ${b.dueDay}`
   if (b.days < 0) return `Venceu há ${-b.days} dia${-b.days!==1?'s':''}`
   if (b.days === 0) return 'Vence hoje'
@@ -40,62 +55,123 @@ export default function Contas() {
   const addBill   = useFinanceStore(s => s.addBill)
   const updateBill= useFinanceStore(s => s.updateBill)
   const removeBill= useFinanceStore(s => s.removeBill)
-  const addTx     = useFinanceStore(s => s.addTransaction)
-  const getAccountBalance = useFinanceStore(s => s.getAccountBalance)
+  const payBillAction     = useFinanceStore(s => s.payBill)
+  const payCreditCardBill = useFinanceStore(s => s.payCreditCardBill)
+  const isBillPaidThisMonth = useFinanceStore(s => s.isBillPaidThisMonth)
+  const getAccountBalance   = useFinanceStore(s => s.getAccountBalance)
+  const rawCC     = useFinanceStore(s => s.creditCardPurchases)
+  // Precisa estar inscrito em `transactions` pra re-renderizar assim que uma
+  // conta/fatura é paga — senão o "já paga" só apareceria no próximo render
+  // por outro motivo, e o usuário voltaria a ver o botão de pagar ativo.
+  const transactions = useFinanceStore(s => s.transactions)
 
   const bills = rawBills ?? []
+  const creditCardPurchases = rawCC ?? []
   const [mOff,         setMOff]         = useState(0)
   const [showAddSheet, setShowAddSheet] = useState(false)
   const [nb,           setNb]           = useState({desc:'',amount:0,day:'',cat:'Internet'})
 
-  const [selected,      setSelected]      = useState<BillMeta|null>(null)
+  const [selected,      setSelected]      = useState<PayableItem|null>(null)
   const [sheetMode,     setSheetMode]     = useState<'actions'|'pay'|'edit'|null>(null)
   const [payAcct,       setPayAcct]       = useState(PAY_ACCOUNTS[0].key)
+  const [payAmount,     setPayAmount]     = useState(0)
+  const [paying,        setPaying]        = useState(false)
+  const payingRef = useRef(false)
   const [editForm,      setEditForm]      = useState({description:'',amount:0,dueDay:1})
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const now      = new Date()
   const todayMid = new Date(now.getFullYear(),now.getMonth(),now.getDate())
 
-  const activeBills: BillMeta[] = useMemo(()=>
+  function bucketOf(days: number): Bucket {
+    return mOff!==0 ? 'later' : days<0 ? 'overdue' : days===0 ? 'today' : days<=7 ? 'soon' : 'later'
+  }
+
+  const billItems: PayableItem[] = useMemo(()=>
     bills.filter(b=>b.active&&b.recurring).map(b=>{
       const due   = new Date(now.getFullYear(),now.getMonth()+mOff,b.dueDay)
       const days  = Math.round((due.getTime()-todayMid.getTime())/86400000)
-      const bucket: Bucket = mOff!==0 ? 'later' : days<0 ? 'overdue' : days===0 ? 'today' : days<=7 ? 'soon' : 'later'
-      return {...b,due,days,bucket}
-    }).sort((a,b)=>a.dueDay-b.dueDay)
+      const paid  = mOff===0 && isBillPaidThisMonth(b.id)
+      return {
+        id:b.id, kind:'bill', description:b.description, amount:b.amount, dueDay:b.dueDay,
+        category:b.category, due, days, bucket:paid?'later':bucketOf(days), paid,
+      } as PayableItem
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ,[bills,mOff])
+  ,[bills,mOff,transactions])
 
-  const total = activeBills.reduce((s,b)=>s+b.amount,0)
+  // Uma fatura por cartão, só aparece se tiver algo em aberto pra esse mês —
+  // é exatamente o que payCreditCardBill vai cobrar. Pagar faz o valor em
+  // aberto zerar e o item some da lista sozinho, sem precisar de outra trava.
+  const cardItems: PayableItem[] = useMemo(()=>{
+    const cards: ('C6'|'Nubank')[] = ['C6','Nubank']
+    return cards.map(card=>{
+      const open = openPurchasesForMonth(creditCardPurchases, card, mOff, now)
+      const amount = open.reduce((s,p)=>s+p.monthlyAmount,0)
+      if (amount<=0) return null
+      const dueDay = CARD_DUE_DAY[card]
+      const due   = new Date(now.getFullYear(),now.getMonth()+mOff,dueDay)
+      const days  = Math.round((due.getTime()-todayMid.getTime())/86400000)
+      return {
+        id:`card-${card}`, kind:'card', description:`Fatura ${CARD_LABEL[card]}`, amount, dueDay,
+        category:'Cartão de Crédito', due, days, bucket:bucketOf(days), card, purchaseCount:open.length,
+      } as PayableItem
+    }).filter(Boolean) as PayableItem[]
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[creditCardPurchases,mOff])
+
+  const activeItems = useMemo(()=>
+    [...billItems,...cardItems].sort((a,b)=>a.dueDay-b.dueDay)
+  ,[billItems,cardItems])
+
+  const unpaidItems = useMemo(()=>activeItems.filter(i=>!i.paid),[activeItems])
+  const paidItems   = useMemo(()=>mOff===0?activeItems.filter(i=>i.paid):[],[activeItems,mOff])
+
+  const total = unpaidItems.reduce((s,b)=>s+b.amount,0)
   const getBalance = (k:string) => getAccountBalance(k)
-  const todayStr = new Date().toISOString().split('T')[0]
 
-  const overdue = activeBills.filter(b=>b.bucket==='overdue').sort((a,b)=>a.days-b.days)
-  const dueSoon = activeBills.filter(b=>b.bucket==='today'||b.bucket==='soon').sort((a,b)=>a.days-b.days)
-  const later   = activeBills.filter(b=>b.bucket==='later')
+  const overdue = unpaidItems.filter(b=>b.bucket==='overdue').sort((a,b)=>a.days-b.days)
+  const dueSoon = unpaidItems.filter(b=>b.bucket==='today'||b.bucket==='soon').sort((a,b)=>a.days-b.days)
+  const later   = unpaidItems.filter(b=>b.bucket==='later')
   const nextUp  = mOff===0 ? dueSoon[0] ?? null : null
 
   const catBreakdown = useMemo(()=>{
     const map: Record<string,number> = {}
-    activeBills.forEach(b=>{ map[b.category]=(map[b.category]||0)+b.amount })
+    unpaidItems.forEach(b=>{ map[b.category]=(map[b.category]||0)+b.amount })
     return Object.entries(map).sort((a,b)=>b[1]-a[1])
-  },[activeBills])
+  },[unpaidItems])
 
-  function openSheet(b: BillMeta) { setSelected(b); setSheetMode('actions'); setConfirmDelete(false) }
+  function openSheet(b: PayableItem) { setSelected(b); setSheetMode('actions'); setConfirmDelete(false) }
   function closeSheet() { setSelected(null); setSheetMode(null); setConfirmDelete(false) }
-  function startPay() { setPayAcct(PAY_ACCOUNTS[0].key); setSheetMode('pay') }
-  function startEdit() {
+  function startPay() {
     if (!selected) return
+    payingRef.current = false
+    setPaying(false)
+    setPayAcct(PAY_ACCOUNTS[0].key)
+    setPayAmount(selected.amount)
+    setSheetMode('pay')
+  }
+  function startEdit() {
+    if (!selected || selected.kind!=='bill') return
     setEditForm({description:selected.description,amount:selected.amount,dueDay:selected.dueDay})
     setSheetMode('edit')
   }
 
+  // Trava de clique duplo: o ref é síncrono, então dois cliques rápidos (ou
+  // um clique "grudado") não disparam dois pagamentos reais — só é resetado
+  // quando o sheet de pagamento é reaberto (startPay). Isso resolve o "cliquei
+  // várias vezes e paguei duplicado": o segundo clique agora não faz nada.
   function confirmPay() {
     if (!selected) return
+    if (payingRef.current) return
+    payingRef.current = true
+    setPaying(true)
     const acct = PAY_ACCOUNTS.find(a=>a.key===payAcct)!
-    addTx({type:'expense',category:selected.category||'Outras despesas',amount:selected.amount,
-      description:`${selected.description} — pago via ${acct.label}`,date:todayStr,account:payAcct})
+    if (selected.kind==='card' && selected.card) {
+      payCreditCardBill(selected.card, payAcct, acct.label)
+    } else {
+      payBillAction(selected.id, payAmount, payAcct, acct.label)
+    }
     closeSheet()
   }
 
@@ -129,32 +205,38 @@ export default function Contas() {
     later:   { bg:'#F7F6F2', border:'#EDEBD8', color:S.muted },
   }[bucket])
 
-  const DayBadge = ({b}:{b:BillMeta}) => {
-    const st = bucketStyle(b.bucket)
+  const DayBadge = ({b}:{b:PayableItem}) => {
+    const st = bucketStyle(b.paid?'later':b.bucket)
     return (
       <div style={{width:44,height:44,borderRadius:13,flexShrink:0,
         background:st.bg,border:`1.5px solid ${st.border}`,
         display:'flex',alignItems:'center',justifyContent:'center'}}>
-        <p style={{fontFamily:'Space Grotesk,sans-serif',fontSize:17,fontWeight:800,color:st.color,lineHeight:1,margin:0}}>
-          {b.dueDay}
-        </p>
+        {b.paid
+          ? <Icon name="check" size={17} color={S.green}/>
+          : <p style={{fontFamily:'Space Grotesk,sans-serif',fontSize:17,fontWeight:800,color:st.color,lineHeight:1,margin:0}}>
+              {b.dueDay}
+            </p>}
       </div>
     )
   }
 
-  const BillRow = ({b}:{b:BillMeta}) => (
+  const BillRow = ({b}:{b:PayableItem}) => (
     <button onClick={()=>openSheet(b)} className="pressable"
       style={{width:'100%',display:'flex',alignItems:'center',gap:12,
         padding:'12px 14px',border:'none',cursor:'pointer',textAlign:'left',
-        background:S.surface,borderRadius:16,
+        background:S.surface,borderRadius:16,opacity:b.paid?0.6:1,
         boxShadow:'0 1px 3px rgba(41,38,21,0.05)'}}>
       <DayBadge b={b}/>
       <div style={{flex:1,minWidth:0}}>
         <p style={{fontSize:14,fontWeight:700,color:S.text,margin:0,
-          overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{b.description}</p>
+          overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+          {b.kind==='card' && <Icon name="creditCard" size={11} color={S.muted}/>} {b.description}
+        </p>
         <p style={{fontSize:12,fontWeight:600,margin:'2px 0 0',
-          color: b.bucket==='overdue'?S.red : b.bucket==='today'?S.gold : S.muted}}>
-          {dueLabel(b,mOff)} · {b.category}
+          color: b.paid?S.green : b.bucket==='overdue'?S.red : b.bucket==='today'?S.gold : S.muted}}>
+          {b.paid ? 'Paga este mês'
+            : b.kind==='card' ? `${dueLabel(b,mOff)} · ${b.purchaseCount} compra${b.purchaseCount!==1?'s':''}`
+            : `${dueLabel(b,mOff)} · ${b.category}`}
         </p>
       </div>
       <p style={{fontSize:15,fontWeight:700,color:S.text,margin:0,flexShrink:0}}>{formatCurrency(b.amount)}</p>
@@ -162,7 +244,7 @@ export default function Contas() {
     </button>
   )
 
-  const Section = ({title,items,accent}:{title:string,items:BillMeta[],accent?:string}) => {
+  const Section = ({title,items,accent}:{title:string,items:PayableItem[],accent?:string}) => {
     if (items.length===0) return null
     const subtotal = items.reduce((s,b)=>s+b.amount,0)
     return (
@@ -226,9 +308,11 @@ export default function Contas() {
           <p style={{fontFamily:'Space Grotesk,sans-serif',fontWeight:700,fontSize:32,color:'#fff',
             margin:0,lineHeight:1,position:'relative'}}>{formatCurrency(total)}</p>
           <p style={{fontSize:12,color:'#857A50',margin:'6px 0 0',position:'relative'}}>
-            {activeBills.length} conta{activeBills.length!==1?'s':''}
+            {unpaidItems.length} conta{unpaidItems.length!==1?'s':''}
             {mOff===0 && overdue.length>0 &&
               <span style={{color:'#F87171'}}> · {overdue.length} vencida{overdue.length!==1?'s':''}</span>}
+            {mOff===0 && paidItems.length>0 &&
+              <span style={{color:'#7FD99A'}}> · {paidItems.length} paga{paidItems.length!==1?'s':''}</span>}
           </p>
 
           {catBreakdown.length>0 && (
@@ -272,18 +356,21 @@ export default function Contas() {
             <Section title="Vencidas" items={overdue} accent={S.red}/>
             <Section title="Essa semana" items={dueSoon} accent={S.gold}/>
             <Section title="Depois" items={later}/>
+            <Section title="Pagas este mês" items={paidItems} accent={S.green}/>
           </>
         ) : (
-          <Section title={`Contas de ${mLabel(mOff)}`} items={activeBills}/>
+          <Section title={`Contas de ${mLabel(mOff)}`} items={unpaidItems}/>
         )}
 
-        {activeBills.length===0&&(
+        {unpaidItems.length===0&&(
           <div style={{textAlign:'center',padding:'40px 0'}}>
             <div style={{width:48,height:48,borderRadius:16,background:'#F0EFE9',
               display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>
               <Icon name="check" size={22} color="#A8A79E"/>
             </div>
-            <p style={{fontSize:14,color:'#A8A79E',margin:0}}>Nenhuma conta para {mLabel(mOff)}</p>
+            <p style={{fontSize:14,color:'#A8A79E',margin:0}}>
+              {paidItems.length>0 ? 'Tudo pago esse mês 🎉' : `Nenhuma conta para ${mLabel(mOff)}`}
+            </p>
           </div>
         )}
 
@@ -320,34 +407,54 @@ export default function Contas() {
                 </div>
 
                 <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                  <button onClick={startPay}
-                    style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',borderRadius:14,
-                      border:'none',cursor:'pointer',background:S.green,color:'#fff'}}>
-                    <Icon name="check" size={17} color="#fff"/>
-                    <span style={{fontSize:14,fontWeight:700}}>Marcar como paga</span>
-                  </button>
-                  <button onClick={startEdit}
-                    style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',borderRadius:14,
-                      border:'none',cursor:'pointer',background:'#F0EFE9',color:S.text}}>
-                    <Icon name="edit" size={16} color={S.muted}/>
-                    <span style={{fontSize:14,fontWeight:600}}>Editar</span>
-                  </button>
-                  {confirmDelete ? (
-                    <div style={{display:'flex',gap:8}}>
-                      <button onClick={()=>setConfirmDelete(false)}
-                        style={{flex:1,padding:'14px',borderRadius:14,border:'none',cursor:'pointer',
-                          background:'#F0EFE9',color:S.muted,fontSize:13,fontWeight:600}}>Cancelar</button>
-                      <button onClick={confirmRemove}
-                        style={{flex:1,padding:'14px',borderRadius:14,border:'none',cursor:'pointer',
-                          background:S.red,color:'#fff',fontSize:13,fontWeight:700}}>Confirmar exclusão</button>
+                  {selected.paid ? (
+                    <div style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',borderRadius:14,
+                      background:S.greenBg}}>
+                      <Icon name="check" size={17} color={S.green}/>
+                      <span style={{fontSize:14,fontWeight:700,color:S.green}}>Já paga este mês</span>
                     </div>
                   ) : (
-                    <button onClick={()=>setConfirmDelete(true)}
+                    <button onClick={startPay}
                       style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',borderRadius:14,
-                        border:'none',cursor:'pointer',background:S.redBg,color:S.red}}>
-                      <Icon name="trash" size={16} color={S.red}/>
-                      <span style={{fontSize:14,fontWeight:600}}>Excluir</span>
+                        border:'none',cursor:'pointer',background:S.green,color:'#fff'}}>
+                      <Icon name="check" size={17} color="#fff"/>
+                      <span style={{fontSize:14,fontWeight:700}}>Marcar como paga</span>
                     </button>
+                  )}
+
+                  {selected.kind==='card' ? (
+                    <Link href="/cartoes" onClick={closeSheet}
+                      style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',borderRadius:14,
+                        textDecoration:'none',background:'#F0EFE9',color:S.text}}>
+                      <Icon name="creditCard" size={16} color={S.muted}/>
+                      <span style={{fontSize:14,fontWeight:600}}>Ver compras do cartão</span>
+                    </Link>
+                  ) : (
+                    <>
+                      <button onClick={startEdit}
+                        style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',borderRadius:14,
+                          border:'none',cursor:'pointer',background:'#F0EFE9',color:S.text}}>
+                        <Icon name="edit" size={16} color={S.muted}/>
+                        <span style={{fontSize:14,fontWeight:600}}>Editar</span>
+                      </button>
+                      {confirmDelete ? (
+                        <div style={{display:'flex',gap:8}}>
+                          <button onClick={()=>setConfirmDelete(false)}
+                            style={{flex:1,padding:'14px',borderRadius:14,border:'none',cursor:'pointer',
+                              background:'#F0EFE9',color:S.muted,fontSize:13,fontWeight:600}}>Cancelar</button>
+                          <button onClick={confirmRemove}
+                            style={{flex:1,padding:'14px',borderRadius:14,border:'none',cursor:'pointer',
+                              background:S.red,color:'#fff',fontSize:13,fontWeight:700}}>Confirmar exclusão</button>
+                        </div>
+                      ) : (
+                        <button onClick={()=>setConfirmDelete(true)}
+                          style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',borderRadius:14,
+                            border:'none',cursor:'pointer',background:S.redBg,color:S.red}}>
+                          <Icon name="trash" size={16} color={S.red}/>
+                          <span style={{fontSize:14,fontWeight:600}}>Excluir</span>
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -362,9 +469,23 @@ export default function Contas() {
                   </div>
                   <div>
                     <p style={{fontSize:14,fontWeight:700,color:S.text,margin:0}}>Pagar {selected.description}</p>
-                    <p style={{fontSize:13,fontWeight:700,color:S.red,margin:0}}>{formatCurrency(selected.amount)}</p>
+                    {selected.kind!=='bill' &&
+                      <p style={{fontSize:13,fontWeight:700,color:S.red,margin:0}}>{formatCurrency(selected.amount)}</p>}
                   </div>
                 </div>
+
+                {selected.kind==='bill' && (
+                  <div>
+                    <p style={{fontSize:11,fontWeight:700,color:S.muted,textTransform:'uppercase',
+                      letterSpacing:'0.06em',margin:'0 0 8px'}}>Valor pago</p>
+                    <MoneyInput value={payAmount} onChange={setPayAmount} style={{fontSize:18}}/>
+                    {payAmount!==selected.amount &&
+                      <p style={{fontSize:11,color:S.faint,margin:'6px 0 0'}}>
+                        Valor de referência: {formatCurrency(selected.amount)} — só essa cobrança muda, a conta
+                        fixa continua com o valor padrão.
+                      </p>}
+                  </div>
+                )}
 
                 <div>
                   <p style={{fontSize:11,fontWeight:700,color:S.muted,textTransform:'uppercase',
@@ -397,20 +518,25 @@ export default function Contas() {
 
                 <div style={{background:'#F0EFE9',borderRadius:10,padding:'10px 14px'}}>
                   <p style={{fontSize:12,color:'#544C31',margin:0,lineHeight:1.5}}>
-                    Será debitado <strong style={{color:S.red}}>{formatCurrency(selected.amount)}</strong> da{' '}
+                    Será debitado <strong style={{color:S.red}}>
+                      {formatCurrency(selected.kind==='bill'?payAmount:selected.amount)}</strong> da{' '}
                     <strong style={{color:S.text}}>{PAY_ACCOUNTS.find(a=>a.key===payAcct)?.label}</strong>
                     {getBalance(payAcct)>0&&<> · saldo: <strong>{formatCurrency(getBalance(payAcct))}</strong></>}
                   </p>
                 </div>
 
                 <div style={{display:'flex',gap:8}}>
-                  <button onClick={()=>setSheetMode('actions')}
+                  <button onClick={()=>setSheetMode('actions')} disabled={paying}
                     style={{flex:1,padding:'12px',borderRadius:12,border:'none',cursor:'pointer',
-                      background:'#F0EFE9',color:S.muted,fontSize:13,fontWeight:600}}>Voltar</button>
-                  <button onClick={confirmPay}
-                    style={{flex:2,padding:'12px',borderRadius:12,border:'none',cursor:'pointer',
+                      background:'#F0EFE9',color:S.muted,fontSize:13,fontWeight:600,opacity:paying?0.6:1}}>Voltar</button>
+                  <button onClick={confirmPay} disabled={paying}
+                    style={{flex:2,padding:'12px',borderRadius:12,border:'none',
+                      cursor:paying?'default':'pointer',
                       background:S.green,color:'#fff',fontSize:13,fontWeight:700,
-                      boxShadow:'0 3px 10px rgba(45,122,79,0.25)'}}>Confirmar pagamento</button>
+                      opacity:paying?0.7:1,
+                      boxShadow:'0 3px 10px rgba(45,122,79,0.25)'}}>
+                    {paying?'Pagando...':'Confirmar pagamento'}
+                  </button>
                 </div>
               </div>
             )}

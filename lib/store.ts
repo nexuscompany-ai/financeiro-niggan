@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { openPurchasesForMonth } from './creditCards'
 
 export type TransactionType = 'income' | 'expense' | 'investment' | 'transfer'
 
@@ -18,6 +19,9 @@ export interface Transaction {
   // é assim que o saldo de cada conta vira um extrato, não um número solto.
   account?: string
   toAccount?: string
+  // Marca o pagamento de uma conta fixa — é assim que a tela sabe que ela
+  // já foi paga este mês (e recusa pagar de novo).
+  billId?: string
 }
 
 export interface CreditCardPurchase {
@@ -73,11 +77,20 @@ export interface FinanceState {
   updateCreditCardPurchase: (id: string, updates: Partial<Omit<CreditCardPurchase, 'id'>>) => void
   removeCreditCardPurchase: (id: string) => void
   advanceInstallment: () => void   // chamado todo mês
+  // Paga a fatura inteira de um cartão numa única ação atômica: lança a
+  // transação de saída, avança/remove as parcelas — tudo num único set().
+  // Usado por /contas e /cartoes, pra não duplicar essa lógica em dois
+  // lugares (foi assim que os bugs de saldo duplicado aconteceram antes).
+  payCreditCardBill: (card: 'C6' | 'Nubank', account: string, accountLabel: string) => void
 
   // Bills
   addBill: (b: Omit<Bill, 'id'>) => void
   updateBill: (id: string, updates: Partial<Omit<Bill, 'id'>>) => void
   removeBill: (id: string) => void
+  // Paga uma conta fixa (com valor ajustável na hora, ex: corte de cabelo
+  // que variou de preço). Recusa pagar de novo se já foi paga este mês —
+  // mesma proteção contra pagamento duplicado do payCreditCardBill.
+  payBill: (billId: string, amount: number, account: string, accountLabel: string) => void
 
   // Patrimony & Goals
   updatePatrimony: (account: string, balance: number) => void
@@ -94,6 +107,8 @@ export interface FinanceState {
   getCreditCardTotal: (card: 'C6' | 'Nubank') => number
   getActiveBills: () => Bill[]
   getAccountBalance: (account: string) => number
+  isBillPaidThisMonth: (billId: string) => boolean
+  getCardOwed: (card: 'C6' | 'Nubank', mOff: number) => number
 
   // Sync
   load: () => Promise<void>
@@ -349,6 +364,37 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
     })
   },
 
+  // Só cobra e avança as compras que ESTÃO EM ABERTO nesse mês (calendário,
+  // não "tem parcela sobrando") — é isso que faz clicar de novo depois de já
+  // ter pago não gerar uma segunda cobrança: openPurchasesForMonth já exclui
+  // o que foi pago, então `open` vem vazio e a função não faz nada.
+  payCreditCardBill: (card, account, accountLabel) => {
+    set((state) => {
+      const now = new Date()
+      const open = openPurchasesForMonth(state.creditCardPurchases, card, 0, now)
+      const amount = open.reduce((s,p)=>s+p.monthlyAmount,0)
+      if (amount <= 0) return state
+      const openIds = new Set(open.map(p=>p.id))
+      const today = now.toISOString().split('T')[0]
+      const newTx: Transaction = {
+        id:`tx-${Date.now()}-${Math.random().toString(36).substr(2,5)}`,
+        type:'expense', category:'Cartão de Crédito', amount,
+        description:`Fatura ${card} — via ${accountLabel}`, date:today, account,
+      }
+      const newTxs = [newTx, ...state.transactions]
+      const newCCs = state.creditCardPurchases
+        .map(p => {
+          if (!openIds.has(p.id)) return p
+          if (p.currentInstallment >= p.installments) return null
+          return { ...p, currentInstallment: p.currentInstallment + 1 }
+        })
+        .filter(Boolean) as CreditCardPurchase[]
+      const ns = { transactions:newTxs, creditCardPurchases:newCCs, bills:state.bills, patrimony:state.patrimony, goals:state.goals }
+      get().save(ns)
+      return { transactions:newTxs, creditCardPurchases:newCCs }
+    })
+  },
+
   // Avança parcelas no início do mês (parcelas que acabaram são removidas)
   advanceInstallment: () => {
     set((state) => {
@@ -393,6 +439,28 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
     })
   },
 
+  // Recusa pagar de novo se já tem uma transação com esse billId este mês —
+  // mesma trava do payCreditCardBill, agora pro lado das contas fixas.
+  payBill: (billId, amount, account, accountLabel) => {
+    set((state) => {
+      const start = startOfMonth()
+      const already = state.transactions.some(t => t.billId===billId && t.date>=start)
+      if (already) return state
+      const bill = state.bills.find(b=>b.id===billId)
+      if (!bill) return state
+      const today = new Date().toISOString().split('T')[0]
+      const newTx: Transaction = {
+        id:`tx-${Date.now()}-${Math.random().toString(36).substr(2,5)}`,
+        type:'expense', category:bill.category||'Outras despesas', amount,
+        description:`${bill.description} — pago via ${accountLabel}`, date:today, account, billId,
+      }
+      const newTxs = [newTx, ...state.transactions]
+      const ns = { transactions:newTxs, creditCardPurchases:state.creditCardPurchases, bills:state.bills, patrimony:state.patrimony, goals:state.goals }
+      get().save(ns)
+      return { transactions:newTxs }
+    })
+  },
+
   // ── Patrimony & Goals ─────────────────────────────────────────────────────
   updatePatrimony: (account, balance) => {
     set((state) => {
@@ -427,6 +495,16 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
     const baseline = get().patrimony.find(p=>p.account===account)?.balance || 0
     const ledger = get().transactions.reduce((s,t)=>s+accountEffect(t,account),0)
     return baseline + ledger
+  },
+
+  isBillPaidThisMonth: (billId) => {
+    const start = startOfMonth()
+    return get().transactions.some(t => t.billId===billId && t.date>=start)
+  },
+
+  getCardOwed: (card, mOff) => {
+    const open = openPurchasesForMonth(get().creditCardPurchases, card, mOff)
+    return open.reduce((s,p)=>s+p.monthlyAmount,0)
   },
 
   getToday: () => {
