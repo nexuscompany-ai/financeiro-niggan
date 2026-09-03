@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { openPurchasesForMonth } from './creditCards'
+import { isBillPaidThisMonth as isBillPaidThisMonthPure } from './bills'
 
 export type TransactionType = 'income' | 'expense' | 'investment' | 'transfer'
 
@@ -443,9 +444,7 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
   // mesma trava do payCreditCardBill, agora pro lado das contas fixas.
   payBill: (billId, amount, account, accountLabel) => {
     set((state) => {
-      const start = startOfMonth()
-      const already = state.transactions.some(t => t.billId===billId && t.date>=start)
-      if (already) return state
+      if (isBillPaidThisMonthPure(state.transactions, billId)) return state
       const bill = state.bills.find(b=>b.id===billId)
       if (!bill) return state
       const today = new Date().toISOString().split('T')[0]
@@ -497,10 +496,7 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
     return baseline + ledger
   },
 
-  isBillPaidThisMonth: (billId) => {
-    const start = startOfMonth()
-    return get().transactions.some(t => t.billId===billId && t.date>=start)
-  },
+  isBillPaidThisMonth: (billId) => isBillPaidThisMonthPure(get().transactions, billId),
 
   getCardOwed: (card, mOff) => {
     const open = openPurchasesForMonth(get().creditCardPurchases, card, mOff)

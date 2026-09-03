@@ -1,12 +1,45 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import useFinanceStore from '@/lib/store'
 import { formatCurrency, FINAL_GOAL } from '@/lib/utils'
+import { pushSupported, getPushSubscription, subscribeToPush, unsubscribeFromPush, sendTestPush } from '@/lib/pushClient'
+
+type PushStatus = 'checking' | 'unsupported' | 'off' | 'on'
 
 export default function Settings() {
   const [showClear, setShowClear] = useState(false)
   const [editGoal, setEditGoal] = useState<string | null>(null)
   const [goalValue, setGoalValue] = useState('')
+  const [pushStatus, setPushStatus] = useState<PushStatus>('checking')
+  const [pushBusy, setPushBusy] = useState(false)
+  const [pushMsg, setPushMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!pushSupported()) { setPushStatus('unsupported'); return }
+    getPushSubscription().then(sub => setPushStatus(sub ? 'on' : 'off'))
+  }, [])
+
+  const handleEnablePush = async () => {
+    setPushBusy(true); setPushMsg(null)
+    const r = await subscribeToPush()
+    setPushBusy(false)
+    if (r.ok) { setPushStatus('on'); setPushMsg('Notificações ativadas!') }
+    else setPushMsg(r.reason || 'Não deu pra ativar')
+  }
+
+  const handleDisablePush = async () => {
+    setPushBusy(true); setPushMsg(null)
+    await unsubscribeFromPush()
+    setPushBusy(false)
+    setPushStatus('off')
+  }
+
+  const handleTestPush = async () => {
+    setPushBusy(true); setPushMsg(null)
+    const r = await sendTestPush()
+    setPushBusy(false)
+    setPushMsg(r.ok ? 'Teste enviado — deve chegar em alguns segundos' : (r.reason || 'Falha ao enviar teste'))
+  }
   const transactions = useFinanceStore(s => s.transactions)
   const goals = useFinanceStore(s => s.goals)
   const updateGoal = useFinanceStore(s => s.updateGoal)
@@ -116,6 +149,44 @@ export default function Settings() {
               )}
             </div>
           ))}
+        </div>
+
+        {/* Notificações push */}
+        <div className="bg-white rounded-xl border border-neutral-100 overflow-hidden">
+          <div className="px-4 py-3 border-b border-neutral-100">
+            <p className="text-xs font-bold text-neutral-500 uppercase">Notificações</p>
+            <p className="text-xs text-neutral-400 mt-0.5">Aviso de contas e faturas vencendo, com o valor de cada uma</p>
+          </div>
+          <div className="px-4 py-4">
+            {pushStatus === 'unsupported' && (
+              <p className="text-sm text-neutral-400">Seu navegador não suporta notificações push. No Safari, funciona a partir da versão 16.4.</p>
+            )}
+            {pushStatus === 'checking' && (
+              <p className="text-sm text-neutral-400">Verificando...</p>
+            )}
+            {pushStatus === 'off' && (
+              <button onClick={handleEnablePush} disabled={pushBusy}
+                className="w-full bg-olive-900 text-white py-2.5 rounded-lg font-medium text-sm disabled:opacity-60">
+                {pushBusy ? 'Ativando...' : 'Ativar notificações no Safari'}
+              </button>
+            )}
+            {pushStatus === 'on' && (
+              <div className="space-y-2">
+                <p className="text-sm text-green-600 font-medium">✓ Notificações ativadas neste dispositivo</p>
+                <div className="flex gap-2">
+                  <button onClick={handleTestPush} disabled={pushBusy}
+                    className="flex-1 bg-neutral-100 text-neutral-700 py-2.5 rounded-lg font-medium text-sm disabled:opacity-60">
+                    Enviar teste
+                  </button>
+                  <button onClick={handleDisablePush} disabled={pushBusy}
+                    className="flex-1 bg-red-50 text-red-600 py-2.5 rounded-lg font-medium text-sm disabled:opacity-60">
+                    Desativar
+                  </button>
+                </div>
+              </div>
+            )}
+            {pushMsg && <p className="text-xs text-neutral-400 mt-2">{pushMsg}</p>}
+          </div>
         </div>
 
         {/* Ações */}

@@ -1,7 +1,7 @@
 import { CreditCardPurchase } from './store'
 
 // Dia de vencimento fixo de cada cartão.
-export const CARD_DUE_DAY: Record<'C6' | 'Nubank', number> = { C6: 1, Nubank: 10 }
+export const CARD_DUE_DAY: Record<'C6' | 'Nubank', number> = { C6: 1, Nubank: 3 }
 export const CARD_LABEL: Record<'C6' | 'Nubank', string> = { C6: 'C6 Black', Nubank: 'Nubank' }
 
 export function installmentsLeft(p: CreditCardPurchase): number {

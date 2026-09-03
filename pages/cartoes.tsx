@@ -4,7 +4,7 @@ import useFinanceStore, { CreditCardPurchase } from '@/lib/store'
 import { formatCurrency } from '@/lib/utils'
 import Icon from '@/components/Icon'
 import MoneyInput from '@/components/MoneyInput'
-import { installmentsLeft as instLeft, isBilledInMonth, isPaidForMonth, openPurchasesForMonth } from '@/lib/creditCards'
+import { installmentsLeft as instLeft, isBilledInMonth, isPaidForMonth, openPurchasesForMonth, CARD_DUE_DAY } from '@/lib/creditCards'
 
 const PAY_ACCOUNTS = [
   { key:'Conta corrente',   label:'Conta corrente',   icon:'wallet',    color:'#292615' },
@@ -275,7 +275,7 @@ export default function Cartoes() {
             <div>
               <p style={{fontSize:14,fontWeight:700,color:'#C9A84C',margin:0}}>C6 Black</p>
               <p style={{fontSize:11,color:'rgba(255,255,255,0.35)',margin:'2px 0 0'}}>
-                Vence dia 1 · {c6List.length} compra{c6List.length!==1?'s':''}
+                Vence dia {CARD_DUE_DAY.C6} · {c6List.length} compra{c6List.length!==1?'s':''}
               </p>
             </div>
             <p style={{fontFamily:'Space Grotesk,sans-serif',fontWeight:700,fontSize:20,
@@ -294,7 +294,7 @@ export default function Cartoes() {
             <div>
               <p style={{fontSize:14,fontWeight:700,color:'#fff',margin:0}}>Nubank</p>
               <p style={{fontSize:11,color:'rgba(255,255,255,0.4)',margin:'2px 0 0'}}>
-                Vence dia 10 · {nuList.length} compra{nuList.length!==1?'s':''}
+                Vence dia {CARD_DUE_DAY.Nubank} · {nuList.length} compra{nuList.length!==1?'s':''}
               </p>
             </div>
             <p style={{fontFamily:'Space Grotesk,sans-serif',fontWeight:700,fontSize:20,
