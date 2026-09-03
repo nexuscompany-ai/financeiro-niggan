@@ -17,6 +17,8 @@ export default function App({ Component, pageProps }: AppProps) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Niggan" />
+        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="apple-touch-icon" href="/favicon.png" />
         <title>Niggan · Finanças</title>
         {/* Fontes via preconnect + stylesheet — não passa pelo otimizador do Next.js */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
