@@ -10,14 +10,21 @@ export default function SideMenu({ open, onClose }: Props) {
   const cards   = useFinanceStore(s => s.creditCardPurchases) ?? []
   const txs     = useFinanceStore(s => s.transactions) ?? []
   const tasks   = useFinanceStore(s => s.tasks) ?? []
+  const isBillPaidThisMonth = useFinanceStore(s => s.isBillPaidThisMonth)
+  const getCardOwed         = useFinanceStore(s => s.getCardOwed)
 
   if (!open) return null
 
   const now = new Date()
   const som = new Date(now.getFullYear(),now.getMonth(),1).toISOString().split('T')[0]
 
-  const totalBills = bills.filter(b=>b.active&&b.recurring).reduce((s,b)=>s+b.amount,0)
-  const totalCC    = cards.reduce((s,p)=>s+p.monthlyAmount,0)
+  // Só o que ainda falta pagar este mês — soma bruta de tudo (mesmo já
+  // pago, ou de parcelas de outros meses) foi a causa do valor aqui nunca
+  // baixar depois de pagar uma conta.
+  const totalBills = bills
+    .filter(b=>b.active&&b.recurring&&!isBillPaidThisMonth(b.id))
+    .reduce((s,b)=>s+b.amount,0)
+  const totalCC    = getCardOwed('C6',0) + getCardOwed('Nubank',0)
   const totalInc   = txs.filter(t=>t.type==='income'&&t.date>=som).reduce((s,t)=>s+t.amount,0)
   const todayISO   = now.toISOString().split('T')[0]
   const tasksToday = tasks.filter(t=>t.date===todayISO)
@@ -108,7 +115,7 @@ export default function SideMenu({ open, onClose }: Props) {
               letterSpacing:'0.08em',margin:'0 0 8px 4px'}}>Finanças</p>
             <div>
               <NavRow href="/contas" icon="zap" label="Contas a pagar"
-                value={formatCurrency(totalBills)} valueColor={S.red}
+                value={formatCurrency(totalBills)} valueColor={S.text}
                 sub={`${bills.filter(b=>b.active&&b.recurring).length} contas fixas`}/>
 
               <NavRow href="/cartoes" icon="creditCard" label="Cartões de crédito"

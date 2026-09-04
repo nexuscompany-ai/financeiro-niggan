@@ -198,8 +198,10 @@ export default function Contas() {
       width:'100%',boxSizing:'border-box' as const,outline:'none'},
   }
 
+  // Sem vermelho de propósito — "vencida" usa o mesmo tom âmbar de "hoje"
+  // em vez de escalar pra uma cor de alarme.
   const bucketStyle = (bucket: Bucket) => ({
-    overdue: { bg:'#FCECEA', border:'#F3C6C0', color:S.red },
+    overdue: { bg:S.goldBg,  border:'#E9D9AE', color:S.gold },
     today:   { bg:S.goldBg,  border:'#E9D9AE', color:S.gold },
     soon:    { bg:'#F0EFE9', border:'#D8D4B8', color:S.olive },
     later:   { bg:'#F7F6F2', border:'#EDEBD8', color:S.muted },
@@ -233,7 +235,7 @@ export default function Contas() {
           {b.kind==='card' && <Icon name="creditCard" size={11} color={S.muted}/>} {b.description}
         </p>
         <p style={{fontSize:12,fontWeight:600,margin:'2px 0 0',
-          color: b.paid?S.green : b.bucket==='overdue'?S.red : b.bucket==='today'?S.gold : S.muted}}>
+          color: b.paid?S.green : b.bucket==='overdue'||b.bucket==='today'?S.gold : S.muted}}>
           {b.paid ? 'Paga este mês'
             : b.kind==='card' ? `${dueLabel(b,mOff)} · ${b.purchaseCount} compra${b.purchaseCount!==1?'s':''}`
             : `${dueLabel(b,mOff)} · ${b.category}`}
@@ -310,7 +312,7 @@ export default function Contas() {
           <p style={{fontSize:12,color:'#857A50',margin:'6px 0 0',position:'relative'}}>
             {unpaidItems.length} conta{unpaidItems.length!==1?'s':''}
             {mOff===0 && overdue.length>0 &&
-              <span style={{color:'#F87171'}}> · {overdue.length} vencida{overdue.length!==1?'s':''}</span>}
+              <span style={{color:'#F0D98A'}}> · {overdue.length} vencida{overdue.length!==1?'s':''}</span>}
             {mOff===0 && paidItems.length>0 &&
               <span style={{color:'#7FD99A'}}> · {paidItems.length} paga{paidItems.length!==1?'s':''}</span>}
           </p>
@@ -353,7 +355,7 @@ export default function Contas() {
         {/* Bills grouped */}
         {mOff===0 ? (
           <>
-            <Section title="Vencidas" items={overdue} accent={S.red}/>
+            <Section title="Vencidas" items={overdue} accent={S.gold}/>
             <Section title="Essa semana" items={dueSoon} accent={S.gold}/>
             <Section title="Depois" items={later}/>
             <Section title="Pagas este mês" items={paidItems} accent={S.green}/>
@@ -399,11 +401,11 @@ export default function Contas() {
                   <DayBadge b={selected}/>
                   <div style={{flex:1,minWidth:0}}>
                     <p style={{fontSize:16,fontWeight:700,color:S.text,margin:0}}>{selected.description}</p>
-                    <p style={{fontSize:12,color: selected.bucket==='overdue'?S.red:S.muted,margin:'2px 0 0'}}>
+                    <p style={{fontSize:12,color: selected.bucket==='overdue'?S.gold:S.muted,margin:'2px 0 0'}}>
                       {dueLabel(selected,mOff)} · {selected.category}
                     </p>
                   </div>
-                  <p style={{fontSize:18,fontWeight:700,color:S.red,margin:0}}>{formatCurrency(selected.amount)}</p>
+                  <p style={{fontSize:18,fontWeight:700,color:S.text,margin:0}}>{formatCurrency(selected.amount)}</p>
                 </div>
 
                 <div style={{display:'flex',flexDirection:'column',gap:8}}>
@@ -463,14 +465,14 @@ export default function Contas() {
             {sheetMode==='pay' && (
               <div style={{display:'flex',flexDirection:'column',gap:16}}>
                 <div style={{display:'flex',alignItems:'center',gap:12}}>
-                  <div style={{width:38,height:38,borderRadius:12,background:S.redBg,
+                  <div style={{width:38,height:38,borderRadius:12,background:'#F0EFE9',
                     display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                    <Icon name="creditCard" size={17} color={S.red}/>
+                    <Icon name="creditCard" size={17} color={S.olive}/>
                   </div>
                   <div>
                     <p style={{fontSize:14,fontWeight:700,color:S.text,margin:0}}>Pagar {selected.description}</p>
                     {selected.kind!=='bill' &&
-                      <p style={{fontSize:13,fontWeight:700,color:S.red,margin:0}}>{formatCurrency(selected.amount)}</p>}
+                      <p style={{fontSize:13,fontWeight:700,color:S.text,margin:0}}>{formatCurrency(selected.amount)}</p>}
                   </div>
                 </div>
 
@@ -518,7 +520,7 @@ export default function Contas() {
 
                 <div style={{background:'#F0EFE9',borderRadius:10,padding:'10px 14px'}}>
                   <p style={{fontSize:12,color:'#544C31',margin:0,lineHeight:1.5}}>
-                    Será debitado <strong style={{color:S.red}}>
+                    Será debitado <strong style={{color:S.text}}>
                       {formatCurrency(selected.kind==='bill'?payAmount:selected.amount)}</strong> da{' '}
                     <strong style={{color:S.text}}>{PAY_ACCOUNTS.find(a=>a.key===payAcct)?.label}</strong>
                     {getBalance(payAcct)>0&&<> · saldo: <strong>{formatCurrency(getBalance(payAcct))}</strong></>}
