@@ -48,8 +48,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (days <= 1) due.push({ description: `Fatura ${CARD_LABEL[card]}`, amount, days })
     }
 
+    // Só o título entra no lembrete — a descrição/notas ficam só na aba
+    // Tarefas. Ordena pelas que têm horário marcado primeiro.
     const pendingTasks: string[] = tasks
       .filter((t: any) => t.date === todayISO && !t.done)
+      .sort((a: any, b: any) => (a.reminderTime || '99:99').localeCompare(b.reminderTime || '99:99'))
       .map((t: any) => t.description)
 
     if (due.length === 0 && pendingTasks.length === 0) {

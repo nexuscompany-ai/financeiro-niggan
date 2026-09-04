@@ -67,6 +67,13 @@ export interface Goal {
 export interface Task {
   id: string
   description: string
+  // Descrição/detalhe extra, opcional — não aparece no lembrete por push,
+  // que mostra só o título (`description`).
+  notes?: string
+  // Horário do dia pra lembrar, opcional ("HH:MM"). Só ordena/mostra a
+  // tarefa nesse horário — o envio real do lembrete diário continua sendo
+  // 1x por dia (limite do cron no plano atual da Vercel).
+  reminderTime?: string
   date: string   // "YYYY-MM-DD"
   done: boolean
 }

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import useFinanceStore from '@/lib/store'
+import useFinanceStore, { Task } from '@/lib/store'
 import Icon from '@/components/Icon'
 
 function todayISO() { return new Date().toISOString().split('T')[0] }
@@ -22,16 +22,29 @@ export default function Tarefas() {
   const tasks = rawTasks ?? []
   const [selectedDate, setSelectedDate] = useState(todayISO())
   const [desc, setDesc] = useState('')
+  const [notes, setNotes] = useState('')
+  const [reminderTime, setReminderTime] = useState('')
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const [pickingDate, setPickingDate] = useState(false)
 
+  // Com horário definido vem primeiro, em ordem — sem horário fica depois,
+  // na ordem em que foram criadas.
+  const byTime = (list: Task[]) => [...list].sort((a, b) => {
+    if (a.reminderTime && b.reminderTime) return a.reminderTime.localeCompare(b.reminderTime)
+    if (a.reminderTime) return -1
+    if (b.reminderTime) return 1
+    return 0
+  })
+
   const dayTasks = useMemo(()=>tasks.filter(t=>t.date===selectedDate), [tasks, selectedDate])
-  const pending = dayTasks.filter(t=>!t.done)
-  const doneTasks = dayTasks.filter(t=>t.done)
+  const pending = byTime(dayTasks.filter(t=>!t.done))
+  const doneTasks = byTime(dayTasks.filter(t=>t.done))
 
   const S = {
     surface:'#fff', border:'1px solid #F0EFE9',
     text:'#1A1A14', muted:'#857A50', faint:'#B0AC98',
     red:'#C0392B', redBg:'#FEF0EE', green:'#2D7A4F', greenBg:'#EBF7F0',
+    gold:'#8A6D2E', goldBg:'#FAF3E1',
     olive:'#3D3822', oliveL:'#F0D98A',
     inp:{background:'#F7F6F2',border:'1.5px solid #E5E3D8',borderRadius:12,
       padding:'11px 14px',fontSize:14,color:'#1A1A14',
@@ -40,8 +53,13 @@ export default function Tarefas() {
 
   function submitAdd() {
     if (!desc.trim()) return
-    addTask({ description: desc.trim(), date: selectedDate })
-    setDesc('')
+    addTask({
+      description: desc.trim(),
+      date: selectedDate,
+      ...(notes.trim() ? { notes: notes.trim() } : {}),
+      ...(reminderTime ? { reminderTime } : {}),
+    })
+    setDesc(''); setNotes(''); setReminderTime(''); setShowAdvanced(false)
   }
 
   const QUICK = [
@@ -49,18 +67,29 @@ export default function Tarefas() {
     { label:'Amanhã', date:addDaysISO(1) },
   ]
 
-  const TaskRow = ({t}:{t:{id:string,description:string,done:boolean}}) => (
-    <div style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',
+  const TaskRow = ({t}:{t:Task}) => (
+    <div style={{display:'flex',alignItems:'flex-start',gap:12,padding:'12px 14px',
       background:S.surface,borderRadius:16,boxShadow:'0 1px 3px rgba(41,38,21,0.05)'}}>
       <button onClick={()=>toggleTask(t.id)} className="pressable"
         style={{width:26,height:26,borderRadius:9,flexShrink:0,border:'none',cursor:'pointer',
-          display:'flex',alignItems:'center',justifyContent:'center',
+          display:'flex',alignItems:'center',justifyContent:'center',marginTop:1,
           background:t.done?S.green:'#F0EFE9'}}>
         {t.done && <Icon name="check" size={14} color="#fff"/>}
       </button>
-      <p style={{flex:1,fontSize:14,fontWeight:600,margin:0,
-        color:t.done?S.faint:S.text,
-        textDecoration:t.done?'line-through':'none'}}>{t.description}</p>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          {t.reminderTime && (
+            <span style={{fontSize:11,fontWeight:700,color:t.done?S.faint:S.gold,
+              background:t.done?'#F0EFE9':S.goldBg,borderRadius:6,padding:'2px 6px',flexShrink:0}}>
+              {t.reminderTime}
+            </span>
+          )}
+          <p style={{fontSize:14,fontWeight:600,margin:0,minWidth:0,
+            color:t.done?S.faint:S.text,
+            textDecoration:t.done?'line-through':'none'}}>{t.description}</p>
+        </div>
+        {t.notes && <p style={{fontSize:12,color:S.faint,margin:'3px 0 0'}}>{t.notes}</p>}
+      </div>
       <button onClick={()=>removeTask(t.id)} className="pressable"
         style={{width:28,height:28,borderRadius:9,border:'none',cursor:'pointer',flexShrink:0,
           background:S.redBg,display:'flex',alignItems:'center',justifyContent:'center'}}>
@@ -132,17 +161,47 @@ export default function Tarefas() {
         </div>
 
         {/* Add task */}
-        <div style={{display:'flex',gap:8}}>
-          <input placeholder="Nova tarefa..." value={desc}
-            onChange={e=>setDesc(e.target.value)}
-            onKeyDown={e=>{if(e.key==='Enter') submitAdd()}}
-            style={{...S.inp,flex:1}}/>
-          <button onClick={submitAdd} disabled={!desc.trim()}
-            style={{width:46,borderRadius:12,border:'none',cursor:desc.trim()?'pointer':'default',
-              background:desc.trim()?S.olive:'#F0EFE9',opacity:desc.trim()?1:0.6,
-              display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <Icon name="plus" size={18} color={desc.trim()?S.oliveL:S.muted}/>
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          <div style={{display:'flex',gap:8}}>
+            <input placeholder="Nova tarefa..." value={desc}
+              onChange={e=>setDesc(e.target.value)}
+              onKeyDown={e=>{if(e.key==='Enter') submitAdd()}}
+              style={{...S.inp,flex:1}}/>
+            <button onClick={submitAdd} disabled={!desc.trim()}
+              style={{width:46,borderRadius:12,border:'none',cursor:desc.trim()?'pointer':'default',
+                background:desc.trim()?S.olive:'#F0EFE9',opacity:desc.trim()?1:0.6,
+                display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <Icon name="plus" size={18} color={desc.trim()?S.oliveL:S.muted}/>
+            </button>
+          </div>
+
+          <button onClick={()=>setShowAdvanced(s=>!s)}
+            style={{alignSelf:'flex-start',display:'flex',alignItems:'center',gap:5,
+              background:'none',border:'none',cursor:'pointer',padding:'2px 2px',fontSize:12,color:S.muted}}>
+            <Icon name={showAdvanced?'chevronUp':'chevronDown'} size={11} color={S.muted}/>
+            {showAdvanced
+              ? 'Menos opções'
+              : `Descrição e horário (opcional)${notes||reminderTime?' · preenchido':''}`}
           </button>
+
+          {showAdvanced && (
+            <div style={{background:S.surface,borderRadius:14,border:S.border,
+              padding:12,display:'flex',flexDirection:'column',gap:10}}>
+              <div>
+                <p style={{fontSize:11,fontWeight:700,color:S.muted,margin:'0 0 6px',
+                  textTransform:'uppercase',letterSpacing:'0.05em'}}>Descrição (opcional)</p>
+                <textarea placeholder="Mais detalhes sobre a tarefa..." value={notes}
+                  onChange={e=>setNotes(e.target.value)}
+                  style={{...S.inp,minHeight:60,resize:'vertical' as const,fontFamily:'inherit'}}/>
+              </div>
+              <div>
+                <p style={{fontSize:11,fontWeight:700,color:S.muted,margin:'0 0 6px',
+                  textTransform:'uppercase',letterSpacing:'0.05em'}}>Horário de lembrete (opcional)</p>
+                <input type="time" value={reminderTime}
+                  onChange={e=>setReminderTime(e.target.value)} style={S.inp}/>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Pending list */}
