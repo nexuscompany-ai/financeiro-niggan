@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import useFinanceStore, { CreditCardPurchase } from '@/lib/store'
 import { formatCurrency, EXPENSE_CATEGORIES } from '@/lib/utils'
+import { isBilledInMonth, openPurchasesForMonth, CARD_DUE_DAY } from '@/lib/creditCards'
 import Icon from './Icon'
 
 export default function CreditCard({ hidden = false }: { hidden?: boolean }) {
   const creditCardPurchases    = useFinanceStore(s => s.creditCardPurchases)
   const addCreditCardPurchase  = useFinanceStore(s => s.addCreditCardPurchase)
   const removeCreditCardPurchase = useFinanceStore(s => s.removeCreditCardPurchase)
-  const getCreditCardTotal     = useFinanceStore(s => s.getCreditCardTotal)
 
   const [showForm,     setShowForm]     = useState(false)
   const [expandedCard, setExpandedCard] = useState<'C6'|'Nubank'|null>(null)
@@ -15,8 +15,9 @@ export default function CreditCard({ hidden = false }: { hidden?: boolean }) {
   const [confirmRemove,setConfirmRemove]= useState<string|null>(null)
 
   const fmt    = (v: number) => hidden ? '•••••' : formatCurrency(v)
-  const totalC6= getCreditCardTotal('C6')
-  const totalNu= getCreditCardTotal('Nubank')
+  // Só a fatura deste mês — não soma parcelas de meses futuros junto.
+  const totalC6= openPurchasesForMonth(creditCardPurchases, 'C6', 0).reduce((s,p)=>s+p.monthlyAmount,0)
+  const totalNu= openPurchasesForMonth(creditCardPurchases, 'Nubank', 0).reduce((s,p)=>s+p.monthlyAmount,0)
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault()
@@ -33,13 +34,12 @@ export default function CreditCard({ hidden = false }: { hidden?: boolean }) {
     setShowForm(false)
   }
 
-  const dueDate = (card: 'C6'|'Nubank') => {
-    const day  = card==='C6' ? 1 : 10
-    const next = new Date(new Date().getFullYear(), new Date().getMonth()+1, day)
-    return next.toLocaleDateString('pt-BR', { day:'2-digit', month:'short' })
-  }
+  const dueDate = (card: 'C6'|'Nubank') => `dia ${CARD_DUE_DAY[card]}`
 
-  const cardPurchases = (card: 'C6'|'Nubank') => creditCardPurchases.filter(p=>p.card===card)
+  // Só o que está faturado nesse mês (pago ou não) — mesma regra usada em
+  // /cartoes, pra não misturar parcelas de outros meses aqui.
+  const cardPurchases = (card: 'C6'|'Nubank') =>
+    creditCardPurchases.filter(p=>p.card===card && isBilledInMonth(p,0))
 
   return (
     <div className="px-4 mb-3">

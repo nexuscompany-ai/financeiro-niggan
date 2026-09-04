@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import BalanceCard from '@/components/BalanceCard'
-import InsightsBar from '@/components/InsightsBar'
 import GoalTracker from '@/components/GoalTracker'
 import CreditCard from '@/components/CreditCard'
 import TransactionInput from '@/components/TransactionInput'
@@ -96,7 +95,6 @@ export default function Home() {
       <main className="pb-8">
         <BalanceCard hidden={hidden} />
         <GoalTracker hidden={hidden} />
-        <InsightsBar hidden={hidden} />
         <CreditCard hidden={hidden} />
 
         {/* Action buttons */}
