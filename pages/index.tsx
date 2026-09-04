@@ -72,7 +72,7 @@ export default function Home() {
       <header className="sticky top-0 z-40 glass" style={{ borderBottom: '1px solid #E5E3D8' }}>
         <div className="px-4 py-3 flex items-center justify-between">
           <div>
-            <h1 className="font-display font-bold text-xl tracking-tight" style={{ color: '#292615' }}>niggan</h1>
+            <h1 className="font-display font-bold text-xl tracking-tight" style={{ color: '#292615' }}>neggan</h1>
             <p className="text-xs" style={{ color: '#A8A79E' }}>controle financeiro</p>
           </div>
           <div className="flex items-center gap-2">

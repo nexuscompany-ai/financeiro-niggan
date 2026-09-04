@@ -17,7 +17,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for (const sub of subscriptions) {
       try {
         await sendPush(sub, {
-          title: 'Niggan Finances',
+          title: 'Neggan Finances',
           body: 'Notificações ativadas — você vai receber avisos de contas e faturas vencendo por aqui.',
           url: '/contas',
         })

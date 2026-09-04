@@ -50,17 +50,17 @@ export default function Settings() {
   const patrimony = getTotalPatrimony()
 
   const handleExport = () => {
-    const raw = localStorage.getItem('niggan-v3')
+    const raw = localStorage.getItem('neggan-v3')
     const el = document.createElement('a')
     el.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(raw || '{}'))
-    el.setAttribute('download', `niggan-backup-${new Date().toISOString().split('T')[0]}.json`)
+    el.setAttribute('download', `neggan-backup-${new Date().toISOString().split('T')[0]}.json`)
     document.body.appendChild(el)
     el.click()
     document.body.removeChild(el)
   }
 
   const handleClear = () => {
-    localStorage.removeItem('niggan-v3')
+    localStorage.removeItem('neggan-v3')
     localStorage.removeItem('lastTiktok')
     window.location.href = '/'
   }
@@ -223,7 +223,7 @@ export default function Settings() {
         </div>
 
         <div className="text-center py-2">
-          <p className="text-xs text-neutral-400">Niggan Finances v2.0 · Desenvolvido para Felipe 🚀</p>
+          <p className="text-xs text-neutral-400">Neggan Finances v2.0 · Desenvolvido para Felipe 🚀</p>
         </div>
       </main>
     </div>

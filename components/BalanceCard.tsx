@@ -49,7 +49,7 @@ export default function BalanceCard({ hidden = false }: { hidden?: boolean }) {
         {/* Header */}
         <div className="flex items-center justify-between mb-5 relative">
           <div>
-            <p className="font-display font-bold text-2xl text-white tracking-tight">niggan</p>
+            <p className="font-display font-bold text-2xl text-white tracking-tight">neggan</p>
             <p className="text-xs capitalize mt-0.5" style={{ color:'#857A50' }}>{monthName}</p>
           </div>
           <div className="flex items-center gap-2">

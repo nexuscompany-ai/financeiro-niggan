@@ -11,7 +11,7 @@ self.addEventListener('activate', (event) => {
 })
 
 self.addEventListener('push', (event) => {
-  let payload = { title: 'Niggan Finances', body: 'Você tem uma conta vencendo.', url: '/contas' }
+  let payload = { title: 'Neggan Finances', body: 'Você tem uma conta vencendo.', url: '/contas' }
   try {
     if (event.data) payload = { ...payload, ...event.data.json() }
   } catch {}

@@ -283,12 +283,12 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
         syncing: false,
         lastSync: new Date().toISOString(),
       })
-      localStorage.setItem('niggan-cache', JSON.stringify(remote))
+      localStorage.setItem('neggan-cache', JSON.stringify(remote))
       return
     }
 
     try {
-      const cached = localStorage.getItem('niggan-cache')
+      const cached = localStorage.getItem('neggan-cache')
       if (cached) {
         const data = JSON.parse(cached)
         if (data.transactions?.length > 0) {
@@ -316,13 +316,13 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
       tasks: [] as Task[],
     }
     set({ ...initial, syncing: false })
-    localStorage.setItem('niggan-cache', JSON.stringify(initial))
+    localStorage.setItem('neggan-cache', JSON.stringify(initial))
     await saveData(initial)
   },
 
   save: async (data) => {
     if (typeof window === 'undefined') return
-    localStorage.setItem('niggan-cache', JSON.stringify(data))
+    localStorage.setItem('neggan-cache', JSON.stringify(data))
     saveData(data)
   },
 
