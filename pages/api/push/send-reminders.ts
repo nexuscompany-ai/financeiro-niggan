@@ -23,10 +23,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const bills = data.bills || []
     const creditCardPurchases = data.creditCardPurchases || []
     const transactions = data.transactions || []
+    const tasks = data.tasks || []
     const subscriptions: any[] = Array.isArray(data.pushSubscriptions) ? data.pushSubscriptions : []
     if (subscriptions.length === 0) return res.status(200).json({ ok: true, sent: 0, reason: 'sem inscrições' })
 
     const now = new Date()
+    const todayISO = now.toISOString().split('T')[0]
     type DueItem = { description: string; amount: number; days: number }
     const due: DueItem[] = []
 
@@ -46,19 +48,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (days <= 1) due.push({ description: `Fatura ${CARD_LABEL[card]}`, amount, days })
     }
 
-    if (due.length === 0) return res.status(200).json({ ok: true, sent: 0, reason: 'nada vencendo' })
+    const pendingTasks: string[] = tasks
+      .filter((t: any) => t.date === todayISO && !t.done)
+      .map((t: any) => t.description)
+
+    if (due.length === 0 && pendingTasks.length === 0) {
+      return res.status(200).json({ ok: true, sent: 0, reason: 'nada vencendo' })
+    }
 
     due.sort((a, b) => a.days - b.days)
     const total = due.reduce((s, d) => s + d.amount, 0)
     const suffix = (d: DueItem) => d.days < 0 ? 'vencida' : d.days === 0 ? 'vence hoje' : 'vence amanhã'
 
-    const title = due.length === 1
-      ? `${due[0].description} — ${suffix(due[0])}`
-      : `${due.length} contas precisam de atenção`
-    const body = due.length === 1
-      ? formatCurrency(due[0].amount)
-      : due.slice(0, 4).map(d => `${d.description}: ${formatCurrency(d.amount)}`).join(' · ')
-        + (due.length > 4 ? ` · +${due.length - 4}` : '') + ` · Total ${formatCurrency(total)}`
+    let title: string
+    let body: string
+    if (due.length > 0 && pendingTasks.length === 0) {
+      title = due.length === 1
+        ? `${due[0].description} — ${suffix(due[0])}`
+        : `${due.length} contas precisam de atenção`
+      body = due.length === 1
+        ? formatCurrency(due[0].amount)
+        : due.slice(0, 4).map(d => `${d.description}: ${formatCurrency(d.amount)}`).join(' · ')
+          + (due.length > 4 ? ` · +${due.length - 4}` : '') + ` · Total ${formatCurrency(total)}`
+    } else if (due.length === 0) {
+      title = pendingTasks.length === 1 ? pendingTasks[0] : `${pendingTasks.length} tarefas pendentes hoje`
+      body = pendingTasks.length === 1 ? 'Tarefa de hoje' : pendingTasks.slice(0, 4).join(' · ')
+        + (pendingTasks.length > 4 ? ` · +${pendingTasks.length - 4}` : '')
+    } else {
+      title = 'Pendências de hoje'
+      const dueLine = due.slice(0, 2).map(d => `${d.description}: ${formatCurrency(d.amount)}`).join(' · ')
+      const taskLine = pendingTasks.slice(0, 2).join(' · ') + (pendingTasks.length > 2 ? ` · +${pendingTasks.length - 2}` : '')
+      body = `${dueLine} · ${taskLine}`
+    }
 
     let sent = 0
     const survivors: any[] = []
@@ -76,7 +97,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       await patchNigganData({ ...data, pushSubscriptions: survivors })
     }
 
-    return res.status(200).json({ ok: true, sent, dueCount: due.length })
+    return res.status(200).json({ ok: true, sent, dueCount: due.length, taskCount: pendingTasks.length })
   } catch (err) {
     return res.status(500).json({ error: String(err) })
   }

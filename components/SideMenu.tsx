@@ -9,6 +9,7 @@ export default function SideMenu({ open, onClose }: Props) {
   const bills   = useFinanceStore(s => s.bills)   ?? []
   const cards   = useFinanceStore(s => s.creditCardPurchases) ?? []
   const txs     = useFinanceStore(s => s.transactions) ?? []
+  const tasks   = useFinanceStore(s => s.tasks) ?? []
 
   if (!open) return null
 
@@ -18,6 +19,9 @@ export default function SideMenu({ open, onClose }: Props) {
   const totalBills = bills.filter(b=>b.active&&b.recurring).reduce((s,b)=>s+b.amount,0)
   const totalCC    = cards.reduce((s,p)=>s+p.monthlyAmount,0)
   const totalInc   = txs.filter(t=>t.type==='income'&&t.date>=som).reduce((s,t)=>s+t.amount,0)
+  const todayISO   = now.toISOString().split('T')[0]
+  const tasksToday = tasks.filter(t=>t.date===todayISO)
+  const pendingToday = tasksToday.filter(t=>!t.done).length
 
   const srcInc = (k:string) => txs.filter(t=>t.type==='income'&&t.category===k&&t.date>=som).reduce((s,t)=>s+t.amount,0)
 
@@ -117,6 +121,10 @@ export default function SideMenu({ open, onClose }: Props) {
 
               <NavRow href="/investir" icon="invest" label="Simulador de aporte"
                 value="" sub="Simule seus investimentos" divider/>
+
+              <NavRow href="/tarefas" icon="checklist" label="Tarefas"
+                value={pendingToday>0?String(pendingToday):''} valueColor={S.gold}
+                sub={pendingToday>0?`${pendingToday} pendente${pendingToday!==1?'s':''} hoje`:'Nenhuma pendência hoje'} divider/>
             </div>
           </div>
 

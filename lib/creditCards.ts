@@ -1,11 +1,21 @@
 import { CreditCardPurchase } from './store'
 
-// Dia de vencimento fixo de cada cartão.
-export const CARD_DUE_DAY: Record<'C6' | 'Nubank', number> = { C6: 1, Nubank: 3 }
+// Os dois cartões fecham a fatura dia 10 e o vencimento (pagamento) é dia 3
+// do mês seguinte ao fechamento.
+export const CARD_CLOSE_DAY: Record<'C6' | 'Nubank', number> = { C6: 10, Nubank: 10 }
+export const CARD_DUE_DAY: Record<'C6' | 'Nubank', number> = { C6: 3, Nubank: 3 }
 export const CARD_LABEL: Record<'C6' | 'Nubank', string> = { C6: 'C6 Black', Nubank: 'Nubank' }
 
 export function installmentsLeft(p: CreditCardPurchase): number {
   return p.installments - p.currentInstallment + 1
+}
+
+// "DD/MM" pra exibir a data da 1ª parcela — aceita tanto o formato novo
+// ("YYYY-MM-DD", com dia) quanto o legado ("YYYY-MM", sem dia).
+export function purchaseDateLabel(p: CreditCardPurchase): string {
+  const [y, m, d] = p.startDate.split('-').map(Number)
+  if (!d) return `${String(m).padStart(2,'0')}/${y}`
+  return `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}`
 }
 
 // Número da parcela (1-indexado) que cai no mês `hoje + mOff`, calculado a

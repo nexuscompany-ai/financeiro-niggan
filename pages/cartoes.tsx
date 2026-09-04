@@ -4,7 +4,9 @@ import useFinanceStore, { CreditCardPurchase } from '@/lib/store'
 import { formatCurrency } from '@/lib/utils'
 import Icon from '@/components/Icon'
 import MoneyInput from '@/components/MoneyInput'
-import { installmentsLeft as instLeft, isBilledInMonth, isPaidForMonth, openPurchasesForMonth, CARD_DUE_DAY } from '@/lib/creditCards'
+import { installmentsLeft as instLeft, isBilledInMonth, isPaidForMonth, openPurchasesForMonth, purchaseDateLabel, CARD_DUE_DAY, CARD_CLOSE_DAY } from '@/lib/creditCards'
+
+function todayISO() { return new Date().toISOString().split('T')[0] }
 
 const PAY_ACCOUNTS = [
   { key:'Conta corrente',   label:'Conta corrente',   icon:'wallet',    color:'#292615' },
@@ -30,7 +32,7 @@ export default function Cartoes() {
   const [mOff,    setMOff]    = useState(0)
   const [editCC,  setEditCC]  = useState<CreditCardPurchase|null>(null)
   const [showAdd, setShowAdd] = useState(false)
-  const [ccF,     setCCF]     = useState({desc:'',total:0,inst:'1',card:'C6' as 'C6'|'Nubank'})
+  const [ccF,     setCCF]     = useState({desc:'',total:0,inst:'1',card:'C6' as 'C6'|'Nubank',date:todayISO()})
   const [showPay, setShowPay] = useState(false)
   const [payCard, setPayCard] = useState<'C6'|'Nubank'>('C6')
   const [payAcct, setPayAcct] = useState(PAY_ACCOUNTS[0].key)
@@ -89,12 +91,21 @@ export default function Cartoes() {
             onChange={e=>setEditCC({...editCC,description:e.target.value})} style={S.inp}/>
           <MoneyInput value={editCC.monthlyAmount}
             onChange={v=>setEditCC({...editCC,monthlyAmount:v})} label="Valor mensal (R$/mês)"/>
+          <div>
+            <p style={{fontSize:11,fontWeight:700,color:S.muted,margin:'0 0 6px',
+              textTransform:'uppercase',letterSpacing:'0.05em'}}>Data da 1ª parcela</p>
+            <input type="date" value={editCC.startDate.length>7?editCC.startDate:`${editCC.startDate}-01`}
+              onChange={e=>setEditCC({...editCC,startDate:e.target.value})} style={S.inp}/>
+            <p style={{fontSize:11,color:S.faint,margin:'6px 0 0'}}>
+              Mudar a data move a compra pro mês certo de fatura.
+            </p>
+          </div>
           <div style={{display:'flex',gap:8}}>
             <button onClick={()=>setEditCC(null)}
               style={{flex:1,padding:'11px',borderRadius:12,border:'none',cursor:'pointer',
                 background:'#F0EFE9',color:S.muted,fontSize:13}}>Cancelar</button>
             <button onClick={()=>{updateCC(editCC.id,{
-              description:editCC.description,monthlyAmount:editCC.monthlyAmount
+              description:editCC.description,monthlyAmount:editCC.monthlyAmount,startDate:editCC.startDate
             });setEditCC(null)}}
               style={{flex:1,padding:'11px',borderRadius:12,border:'none',cursor:'pointer',
                 background:S.olive,color:S.oliveL,fontSize:13,fontWeight:700}}>Salvar</button>
@@ -109,7 +120,7 @@ export default function Cartoes() {
             <p style={{fontSize:11,color:S.faint,margin:'3px 0 0'}}>
               {p.installments>1
                 ?`${p.currentInstallment}/${p.installments}× · ${instLeft(p)} restante${instLeft(p)!==1?'s':''}`
-                :'À vista'}{' · '}{p.category}{paid?' · paga':''}
+                :'À vista'}{' · '}{purchaseDateLabel(p)}{' · '}{p.category}{paid?' · paga':''}
             </p>
           </div>
           <p style={{fontSize:14,fontWeight:700,color:paid?S.green:S.red,flexShrink:0}}>{formatCurrency(p.monthlyAmount)}</p>
@@ -275,7 +286,7 @@ export default function Cartoes() {
             <div>
               <p style={{fontSize:14,fontWeight:700,color:'#C9A84C',margin:0}}>C6 Black</p>
               <p style={{fontSize:11,color:'rgba(255,255,255,0.35)',margin:'2px 0 0'}}>
-                Vence dia {CARD_DUE_DAY.C6} · {c6List.length} compra{c6List.length!==1?'s':''}
+                Fecha dia {CARD_CLOSE_DAY.C6} · Vence dia {CARD_DUE_DAY.C6} · {c6List.length} compra{c6List.length!==1?'s':''}
               </p>
             </div>
             <p style={{fontFamily:'Space Grotesk,sans-serif',fontWeight:700,fontSize:20,
@@ -294,7 +305,7 @@ export default function Cartoes() {
             <div>
               <p style={{fontSize:14,fontWeight:700,color:'#fff',margin:0}}>Nubank</p>
               <p style={{fontSize:11,color:'rgba(255,255,255,0.4)',margin:'2px 0 0'}}>
-                Vence dia {CARD_DUE_DAY.Nubank} · {nuList.length} compra{nuList.length!==1?'s':''}
+                Fecha dia {CARD_CLOSE_DAY.Nubank} · Vence dia {CARD_DUE_DAY.Nubank} · {nuList.length} compra{nuList.length!==1?'s':''}
               </p>
             </div>
             <p style={{fontFamily:'Space Grotesk,sans-serif',fontWeight:700,fontSize:20,
@@ -337,6 +348,12 @@ export default function Cartoes() {
                 </select>
               </div>
             </div>
+            <div>
+              <p style={{fontSize:11,fontWeight:700,color:S.muted,margin:'0 0 6px',
+                textTransform:'uppercase',letterSpacing:'0.05em'}}>Data da 1ª parcela</p>
+              <input type="date" value={ccF.date}
+                onChange={e=>setCCF(f=>({...f,date:e.target.value}))} style={S.inp}/>
+            </div>
             {ccF.total>0&&parseInt(ccF.inst)>1&&(
               <div style={{background:'#F0EFE9',borderRadius:10,padding:'8px 12px'}}>
                 <p style={{fontSize:12,color:'#544C31',margin:0}}>
@@ -350,14 +367,14 @@ export default function Cartoes() {
                 style={{flex:1,padding:'12px',borderRadius:12,border:'none',cursor:'pointer',
                   background:'#F0EFE9',color:S.muted,fontSize:13}}>Cancelar</button>
               <button onClick={()=>{
-                if(!ccF.total||!ccF.desc.trim()) return
-                const inst=parseInt(ccF.inst); const n=new Date()
+                if(!ccF.total||!ccF.desc.trim()||!ccF.date) return
+                const inst=parseInt(ccF.inst)
                 addCC({card:ccF.card,description:ccF.desc.trim(),totalAmount:ccF.total,
                   installments:inst,currentInstallment:1,
                   monthlyAmount:parseFloat((ccF.total/inst).toFixed(2)),
-                  startDate:`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`,
+                  startDate:ccF.date,
                   category:'Outros'})
-                setCCF({desc:'',total:0,inst:'1',card:'C6'}); setShowAdd(false)
+                setCCF({desc:'',total:0,inst:'1',card:'C6',date:todayISO()}); setShowAdd(false)
               }} style={{flex:1,padding:'12px',borderRadius:12,border:'none',cursor:'pointer',
                 background:S.olive,color:S.oliveL,fontSize:13,fontWeight:700}}>Confirmar</button>
             </div>

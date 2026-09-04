@@ -33,7 +33,10 @@ export interface CreditCardPurchase {
   installments: number
   currentInstallment: number
   monthlyAmount: number
-  startDate: string   // "YYYY-MM"
+  // Data da 1ª parcela ("YYYY-MM-DD"). O mês dela decide o mês da fatura em
+  // que a compra aparece pela primeira vez — editável, então mudar a data
+  // move a compra pro mês certo. Dados antigos podem estar em "YYYY-MM".
+  startDate: string
   category: string
 }
 
@@ -59,12 +62,22 @@ export interface Goal {
   actual: number | null
 }
 
+// Tarefa avulsa do dia — não é conta nem transação, só um lembrete do que
+// fazer, usado na aba Tarefas e no lembrete diário por notificação.
+export interface Task {
+  id: string
+  description: string
+  date: string   // "YYYY-MM-DD"
+  done: boolean
+}
+
 export interface FinanceState {
   transactions: Transaction[]
   creditCardPurchases: CreditCardPurchase[]
   bills: Bill[]
   patrimony: Patrimony[]
   goals: Goal[]
+  tasks: Task[]
   syncing: boolean
   lastSync: string | null
 
@@ -97,6 +110,11 @@ export interface FinanceState {
   updatePatrimony: (account: string, balance: number) => void
   updateGoal: (month: string, actual: number) => void
 
+  // Tasks
+  addTask: (t: Omit<Task, 'id' | 'done'>) => void
+  toggleTask: (id: string) => void
+  removeTask: (id: string) => void
+
   // Computed
   getBalance: () => number
   getToday: () => { income: number; expense: number; investment: number; transactions: Transaction[] }
@@ -109,6 +127,7 @@ export interface FinanceState {
   getActiveBills: () => Bill[]
   getAccountBalance: (account: string) => number
   isBillPaidThisMonth: (billId: string) => boolean
+  getTasksForDate: (date: string) => Task[]
   getCardOwed: (card: 'C6' | 'Nubank', mOff: number) => number
 
   // Sync
@@ -243,6 +262,7 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
   bills: [],
   patrimony: INITIAL_PATRIMONY,
   goals: INITIAL_GOALS,
+  tasks: [],
   syncing: false,
   lastSync: null,
 
@@ -259,6 +279,7 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
         bills:               remote.bills               ?? INITIAL_BILLS,
         patrimony:           remote.patrimony            ?? INITIAL_PATRIMONY,
         goals:               remote.goals                ?? INITIAL_GOALS,
+        tasks:               remote.tasks                ?? [],
         syncing: false,
         lastSync: new Date().toISOString(),
       })
@@ -277,6 +298,7 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
             bills:               data.bills               ?? INITIAL_BILLS,
             patrimony:           data.patrimony            ?? INITIAL_PATRIMONY,
             goals:               data.goals                ?? INITIAL_GOALS,
+            tasks:               data.tasks                ?? [],
             syncing: false,
           })
           await saveData(data)
@@ -291,6 +313,7 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
       bills: INITIAL_BILLS,
       patrimony: INITIAL_PATRIMONY,
       goals: INITIAL_GOALS,
+      tasks: [] as Task[],
     }
     set({ ...initial, syncing: false })
     localStorage.setItem('niggan-cache', JSON.stringify(initial))
@@ -477,6 +500,32 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
     })
   },
 
+  // ── Tasks ─────────────────────────────────────────────────────────────────
+  addTask: (t) => {
+    set((state) => {
+      const newTask: Task = { ...t, id:`task-${Date.now()}-${Math.random().toString(36).substr(2,5)}`, done:false }
+      const newTasks = [...state.tasks, newTask]
+      const ns = { transactions:state.transactions, creditCardPurchases:state.creditCardPurchases, bills:state.bills, patrimony:state.patrimony, goals:state.goals, tasks:newTasks }
+      get().save(ns); return { tasks: newTasks }
+    })
+  },
+
+  toggleTask: (id) => {
+    set((state) => {
+      const newTasks = state.tasks.map(t => t.id===id ? {...t,done:!t.done} : t)
+      const ns = { transactions:state.transactions, creditCardPurchases:state.creditCardPurchases, bills:state.bills, patrimony:state.patrimony, goals:state.goals, tasks:newTasks }
+      get().save(ns); return { tasks: newTasks }
+    })
+  },
+
+  removeTask: (id) => {
+    set((state) => {
+      const newTasks = state.tasks.filter(t => t.id!==id)
+      const ns = { transactions:state.transactions, creditCardPurchases:state.creditCardPurchases, bills:state.bills, patrimony:state.patrimony, goals:state.goals, tasks:newTasks }
+      get().save(ns); return { tasks: newTasks }
+    })
+  },
+
   // ── Computed ──────────────────────────────────────────────────────────────
   getBalance: () => {
     const m = get().getThisMonth()
@@ -497,6 +546,8 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
   },
 
   isBillPaidThisMonth: (billId) => isBillPaidThisMonthPure(get().transactions, billId),
+
+  getTasksForDate: (date) => get().tasks.filter(t => t.date === date),
 
   getCardOwed: (card, mOff) => {
     const open = openPurchasesForMonth(get().creditCardPurchases, card, mOff)

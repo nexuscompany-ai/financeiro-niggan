@@ -59,10 +59,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       const { data } = req.body
       if (!data) return res.status(400).json({ error: 'Sem dados' })
-      const patchRes = await supabasePatch(data)
+      // Faz merge com o que já está salvo em vez de substituir a coluna
+      // inteira: o app manda só os campos que ele mesmo gerencia (transações,
+      // contas, cartões...), então um replace bruto apagaria campos escritos
+      // por outra rota (ex: pushSubscriptions, gravado por /api/push/subscribe).
+      const getRes = await supabaseGet()
+      const rows = await getRes.json().catch(() => [])
+      const existing = (Array.isArray(rows) && rows[0]?.data) || {}
+      const merged = { ...existing, ...data }
+      const patchRes = await supabasePatch(merged)
       const patchRows = await patchRes.json()
       if (!patchRows || patchRows.length === 0) {
-        await supabaseInsert(data)
+        await supabaseInsert(merged)
         return res.status(200).json({ ok: true, action: 'inserted' })
       }
       return res.status(200).json({ ok: true, action: 'updated' })
