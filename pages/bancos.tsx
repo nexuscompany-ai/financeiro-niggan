@@ -13,7 +13,7 @@ import MoneyInput from '@/components/MoneyInput'
 // o que está investido vira sua própria linha, separada de todo banco.
 const BANKS = [
   { key:'Santander', label:'Santander',       color:'#EC0000' },
-  { key:'C6',        label:'C6',              color:'#C9A84C', dark:true, sub:'Conta corrente — sem investimentos' },
+  { key:'C6',        label:'C6',              color:'#C9A84C', dark:true, sub:"Conta corrente — o investimento está em \"Investimentos\", mais abaixo" },
   { key:'XP Investimentos', label:'XP Investimentos', color:'#1A1A14' },
   { key:'Inter',     label:'Inter',           color:'#FF7A00' },
   { key:'Nubank',      label:'Nubank',       color:'#820AD1' },
@@ -145,7 +145,14 @@ export default function Bancos() {
                       {b.sub && <p style={{fontSize:11,color:S.faint,margin:'1px 0 0'}}>{b.sub}</p>}
                     </div>
                   </div>
-                  <MoneyInput value={draft} onChange={setDraft} label="Saldo atual"/>
+                  <MoneyInput value={draft} onChange={setDraft} label="O valor que você quer salvar"/>
+                  {b.dynSub && (
+                    <div style={{background:'#F0EFE9',borderRadius:10,padding:'8px 12px'}}>
+                      <p style={{fontSize:11,color:S.muted,margin:0,fontStyle:'italic'}}>
+                        Simulação, não afeta o valor salvo: {b.dynSub}
+                      </p>
+                    </div>
+                  )}
                   <div style={{display:'flex',gap:8}}>
                     <button onClick={()=>setEditing(null)}
                       style={{flex:1,padding:'11px',borderRadius:12,border:'none',cursor:'pointer',
@@ -167,7 +174,6 @@ export default function Bancos() {
                   <div style={{flex:1,minWidth:0}}>
                     <p style={{fontSize:14,fontWeight:600,color:S.text,margin:0}}>{b.label}</p>
                     {b.sub && <p style={{fontSize:11,color:S.faint,margin:'1px 0 0'}}>{b.sub}</p>}
-                    {b.dynSub && <p style={{fontSize:11,color:S.gold,margin:'1px 0 0',fontWeight:600}}>{b.dynSub}</p>}
                   </div>
                   <p style={{fontSize:15,fontWeight:700,color:S.text,margin:0,flexShrink:0}}>
                     {formatCurrency(b.balance)}
@@ -178,6 +184,10 @@ export default function Bancos() {
             </div>
           ))}
         </div>
+        <p style={{fontSize:11,color:S.faint,textAlign:'center',margin:0}}>
+          O valor de cada banco é só o que você digitou — pagar uma conta em
+          qualquer lugar do app não muda esse número.
+        </p>
 
         {/* Investimento — separado de propósito, não é um banco */}
         <div>
