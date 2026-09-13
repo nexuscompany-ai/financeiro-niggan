@@ -5,30 +5,29 @@ import { formatCurrency } from '@/lib/utils'
 import Icon from '@/components/Icon'
 import MoneyInput from '@/components/MoneyInput'
 
-// Chave = nome da conta em `patrimony` (getAccountBalance/updatePatrimony).
-// "C6" e "Mercado Pago" reaproveitam as contas que já existem no resto do
-// app — evita duplicar o saldo do C6 em dois lugares diferentes.
+// Saldo aqui é 100% manual (bankBalances) — de propósito desligado do
+// extrato de transações, pra pagar uma conta em qualquer lugar do app não
+// abater daqui. O C6 mostra só o valor em conta; o que está investido fica
+// à parte (mesmo "Investido" que já aparece na home), não entra aqui.
 const BANKS = [
-  { key:'Santander',        label:'Santander',        color:'#EC0000' },
-  { key:'C6 Investimentos', label:'C6',                color:'#C9A84C', dark:true },
-  { key:'XP Investimentos', label:'XP Investimentos',  color:'#1A1A14' },
-  { key:'Inter',            label:'Inter',             color:'#FF7A00' },
-  { key:'Nubank',           label:'Nubank',            color:'#820AD1' },
-  { key:'Mercado Pago',     label:'Mercado Pago',      color:'#00A650' },
+  { key:'Santander', label:'Santander',       color:'#EC0000' },
+  { key:'C6',        label:'C6',              color:'#C9A84C', dark:true, sub:'Conta corrente — sem investimentos' },
+  { key:'XP Investimentos', label:'XP Investimentos', color:'#1A1A14' },
+  { key:'Inter',     label:'Inter',           color:'#FF7A00' },
+  { key:'Nubank',      label:'Nubank',       color:'#820AD1' },
+  { key:'Mercado Pago', label:'Mercado Pago', color:'#00A650' },
 ]
 
 export default function Bancos() {
-  const getAccountBalance = useFinanceStore(s => s.getAccountBalance)
-  const updatePatrimony   = useFinanceStore(s => s.updatePatrimony)
-  // Precisa estar inscrito nesses dois pra re-renderizar assim que um saldo
-  // é editado ou qualquer transação nova afeta uma dessas contas.
-  useFinanceStore(s => s.patrimony)
-  useFinanceStore(s => s.transactions)
+  const getBankBalance = useFinanceStore(s => s.getBankBalance)
+  const setBankBalance = useFinanceStore(s => s.setBankBalance)
+  // Precisa estar inscrito nisso pra re-renderizar assim que um saldo é editado.
+  useFinanceStore(s => s.bankBalances)
 
   const [editing, setEditing] = useState<string|null>(null)
   const [draft,   setDraft]   = useState(0)
 
-  const balances = BANKS.map(b => ({ ...b, balance: getAccountBalance(b.key) }))
+  const balances = BANKS.map(b => ({ ...b, balance: getBankBalance(b.key) }))
   const total = balances.reduce((s,b)=>s+b.balance,0)
 
   const S = {
@@ -46,7 +45,7 @@ export default function Bancos() {
   }
   function saveEdit() {
     if (!editing) return
-    updatePatrimony(editing, draft)
+    setBankBalance(editing, draft)
     setEditing(null)
   }
 
@@ -93,7 +92,10 @@ export default function Bancos() {
                   display:'flex',flexDirection:'column',gap:10}}>
                   <div style={{display:'flex',alignItems:'center',gap:10}}>
                     <div style={{width:32,height:32,borderRadius:10,background:b.color,flexShrink:0}}/>
-                    <p style={{fontSize:14,fontWeight:700,color:S.text,margin:0}}>{b.label}</p>
+                    <div>
+                      <p style={{fontSize:14,fontWeight:700,color:S.text,margin:0}}>{b.label}</p>
+                      {b.sub && <p style={{fontSize:11,color:S.faint,margin:'1px 0 0'}}>{b.sub}</p>}
+                    </div>
                   </div>
                   <MoneyInput value={draft} onChange={setDraft} label="Saldo atual"/>
                   <div style={{display:'flex',gap:8}}>
@@ -114,7 +116,10 @@ export default function Bancos() {
                     display:'flex',alignItems:'center',justifyContent:'center'}}>
                     <Icon name="bank" size={16} color={b.dark?'#111':'#fff'}/>
                   </div>
-                  <p style={{flex:1,fontSize:14,fontWeight:600,color:S.text,margin:0}}>{b.label}</p>
+                  <div style={{flex:1,minWidth:0}}>
+                    <p style={{fontSize:14,fontWeight:600,color:S.text,margin:0}}>{b.label}</p>
+                    {b.sub && <p style={{fontSize:11,color:S.faint,margin:'1px 0 0'}}>{b.sub}</p>}
+                  </div>
                   <p style={{fontSize:15,fontWeight:700,color:S.text,margin:0,flexShrink:0}}>
                     {formatCurrency(b.balance)}
                   </p>

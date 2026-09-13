@@ -78,6 +78,16 @@ export interface Task {
   done: boolean
 }
 
+// Saldo de um banco na tela /bancos — um número puramente manual, de
+// propósito SEM ligação com o extrato de transações (`patrimony` soma
+// efeito de transações via accountEffect; isso aqui não). É assim que
+// editar aqui nunca sofre abatimento de um pagamento feito em outro lugar
+// do app (ex: pagar uma conta "via Mercado Pago" não mexe nesse valor).
+export interface BankBalance {
+  bank: string
+  balance: number
+}
+
 export interface FinanceState {
   transactions: Transaction[]
   creditCardPurchases: CreditCardPurchase[]
@@ -85,6 +95,7 @@ export interface FinanceState {
   patrimony: Patrimony[]
   goals: Goal[]
   tasks: Task[]
+  bankBalances: BankBalance[]
   syncing: boolean
   lastSync: string | null
 
@@ -121,6 +132,11 @@ export interface FinanceState {
   addTask: (t: Omit<Task, 'id' | 'done'>) => void
   toggleTask: (id: string) => void
   removeTask: (id: string) => void
+
+  // Bancos (tela /bancos) — valor manual, não ligado ao extrato de
+  // transações (ver comentário em BankBalance).
+  setBankBalance: (bank: string, balance: number) => void
+  getBankBalance: (bank: string) => number
 
   // Computed
   getBalance: () => number
@@ -274,6 +290,7 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
   patrimony: INITIAL_PATRIMONY,
   goals: INITIAL_GOALS,
   tasks: [],
+  bankBalances: [],
   syncing: false,
   lastSync: null,
 
@@ -291,6 +308,7 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
         patrimony:           remote.patrimony            ?? INITIAL_PATRIMONY,
         goals:               remote.goals                ?? INITIAL_GOALS,
         tasks:               remote.tasks                ?? [],
+        bankBalances:        remote.bankBalances          ?? [],
         syncing: false,
         lastSync: new Date().toISOString(),
       })
@@ -310,6 +328,7 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
             patrimony:           data.patrimony            ?? INITIAL_PATRIMONY,
             goals:               data.goals                ?? INITIAL_GOALS,
             tasks:               data.tasks                ?? [],
+            bankBalances:        data.bankBalances          ?? [],
             syncing: false,
           })
           await saveData(data)
@@ -325,6 +344,7 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
       patrimony: INITIAL_PATRIMONY,
       goals: INITIAL_GOALS,
       tasks: [] as Task[],
+      bankBalances: [] as BankBalance[],
     }
     set({ ...initial, syncing: false })
     localStorage.setItem('neggan-cache', JSON.stringify(initial))
@@ -542,6 +562,20 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
       get().save(ns); return { tasks: newTasks }
     })
   },
+
+  // ── Bancos ────────────────────────────────────────────────────────────────
+  setBankBalance: (bank, balance) => {
+    set((state) => {
+      const exists = state.bankBalances.some(b=>b.bank===bank)
+      const newBB = exists
+        ? state.bankBalances.map(b=>b.bank===bank?{...b,balance}:b)
+        : [...state.bankBalances, {bank, balance}]
+      const ns = { transactions:state.transactions, creditCardPurchases:state.creditCardPurchases, bills:state.bills, patrimony:state.patrimony, goals:state.goals, tasks:state.tasks, bankBalances:newBB }
+      get().save(ns); return { bankBalances: newBB }
+    })
+  },
+
+  getBankBalance: (bank) => get().bankBalances.find(b=>b.bank===bank)?.balance ?? 0,
 
   // ── Computed ──────────────────────────────────────────────────────────────
   getBalance: () => {
