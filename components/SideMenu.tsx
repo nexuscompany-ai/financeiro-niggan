@@ -12,11 +12,15 @@ export default function SideMenu({ open, onClose }: Props) {
   const tasks   = useFinanceStore(s => s.tasks) ?? []
   const isBillPaidThisMonth = useFinanceStore(s => s.isBillPaidThisMonth)
   const getCardOwed         = useFinanceStore(s => s.getCardOwed)
+  const getAccountBalance   = useFinanceStore(s => s.getAccountBalance)
 
   if (!open) return null
 
   const now = new Date()
   const som = new Date(now.getFullYear(),now.getMonth(),1).toISOString().split('T')[0]
+
+  const BANK_KEYS = ['Santander','C6 Investimentos','XP Investimentos','Inter','Nubank','Mercado Pago']
+  const totalBanks = BANK_KEYS.reduce((s,k)=>s+getAccountBalance(k),0)
 
   // Só o que ainda falta pagar este mês — soma bruta de tudo (mesmo já
   // pago, ou de parcelas de outros meses) foi a causa do valor aqui nunca
@@ -108,6 +112,17 @@ export default function SideMenu({ open, onClose }: Props) {
         {/* Scroll content */}
         <div style={{flex:1,overflowY:'auto',overscrollBehavior:'contain',
           padding:'16px',display:'flex',flexDirection:'column',gap:18}}>
+
+          {/* Seção patrimônio */}
+          <div>
+            <p style={{fontSize:10,fontWeight:700,color:S.faint,textTransform:'uppercase',
+              letterSpacing:'0.08em',margin:'0 0 8px 4px'}}>Patrimônio</p>
+            <div>
+              <NavRow href="/bancos" icon="bank" label="Bancos"
+                value={formatCurrency(totalBanks)} valueColor={S.gold}
+                sub="Santander, C6, XP, Inter, Nubank, Mercado Pago"/>
+            </div>
+          </div>
 
           {/* Seção finanças */}
           <div>

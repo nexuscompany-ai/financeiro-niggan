@@ -149,6 +149,10 @@ const INITIAL_PATRIMONY: Patrimony[] = [
   { account: 'C6 Investimentos', balance: 11023.85 },
   { account: 'Mercado Pago',     balance: 0        },
   { account: 'Outros',           balance: 0        },
+  { account: 'Santander',        balance: 0        },
+  { account: 'XP Investimentos', balance: 0        },
+  { account: 'Inter',            balance: 0        },
+  { account: 'Nubank',           balance: 0        },
 ]
 
 const INITIAL_GOALS: Goal[] = [
@@ -491,9 +495,15 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
   },
 
   // ── Patrimony & Goals ─────────────────────────────────────────────────────
+  // Upsert: se `account` ainda não existe em patrimony (ex: banco novo sendo
+  // cadastrado pela primeira vez), cria — só atualizar com .map() deixava
+  // silenciosamente sem efeito nenhum pra conta que ainda não estava na lista.
   updatePatrimony: (account, balance) => {
     set((state) => {
-      const newPat = state.patrimony.map(p => p.account===account ? {...p,balance} : p)
+      const exists = state.patrimony.some(p=>p.account===account)
+      const newPat = exists
+        ? state.patrimony.map(p => p.account===account ? {...p,balance} : p)
+        : [...state.patrimony, {account, balance}]
       const ns = { transactions:state.transactions, creditCardPurchases:state.creditCardPurchases, bills:state.bills, patrimony:newPat, goals:state.goals }
       get().save(ns); return { patrimony: newPat }
     })
