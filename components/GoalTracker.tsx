@@ -3,9 +3,11 @@ import { formatCurrency, getProgressPercent, FINAL_GOAL } from '@/lib/utils'
 import Icon from './Icon'
 
 export default function GoalTracker({ hidden = false }: { hidden?: boolean }) {
-  const getTotalPatrimony = useFinanceStore(s => s.getTotalPatrimony)
+  const getTotalInvestido = useFinanceStore(s => s.getTotalInvestido)
   const goals    = useFinanceStore(s => s.goals)
-  const patrimony= getTotalPatrimony()
+  // Meta de patrimônio é só sobre o que está investido — não soma com
+  // saldo de banco (conta corrente, Mercado Pago, etc).
+  const patrimony= getTotalInvestido()
   const progress = getProgressPercent(patrimony, FINAL_GOAL)
   const fmt      = (v: number) => hidden ? '•••••' : formatCurrency(v)
 

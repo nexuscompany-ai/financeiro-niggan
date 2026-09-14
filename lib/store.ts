@@ -146,6 +146,7 @@ export interface FinanceState {
   getByCategory: (days?: number) => Record<string, number>
   getInsights: () => { dailyAverage: number; projectedMonthly: number; mostSpentCategory: string; biggestExpense: Transaction | null }
   getTotalPatrimony: () => number
+  getTotalInvestido: () => number
   getCreditCardTotal: (card: 'C6' | 'Nubank') => number
   getActiveBills: () => Bill[]
   getAccountBalance: (account: string) => number
@@ -584,6 +585,15 @@ const useFinanceStore = create<FinanceState>()((set, get) => ({
   },
 
   getTotalPatrimony: () => get().patrimony.reduce((s,p)=>s+get().getAccountBalance(p.account),0),
+
+  // Valor investido — mesma origem da linha "Investimento" em /bancos:
+  // uma vez editada ali, vira 100% independente (bankBalances); antes
+  // disso, cai pro que já existia em C6 Investimentos. Meta de patrimônio
+  // usa só isso, nunca soma com saldo de banco (conta corrente etc).
+  getTotalInvestido: () => {
+    const hasInvestEntry = get().bankBalances.some(b=>b.bank==='Investimento')
+    return hasInvestEntry ? get().getBankBalance('Investimento') : get().getAccountBalance('C6 Investimentos')
+  },
 
   getCreditCardTotal: (card) =>
     get().creditCardPurchases.filter(p=>p.card===card).reduce((s,p)=>s+p.monthlyAmount,0),

@@ -6,9 +6,9 @@ import MoneyInput from './MoneyInput'
 
 export default function BalanceCard({ hidden = false }: { hidden?: boolean }) {
   const getThisMonth = useFinanceStore(s => s.getThisMonth)
-  const patrimony    = useFinanceStore(s => s.patrimony)
-  const updatePatrimony = useFinanceStore(s => s.updatePatrimony)
-  const getAccountBalance = useFinanceStore(s => s.getAccountBalance)
+  const getBankBalance = useFinanceStore(s => s.getBankBalance)
+  const setBankBalance = useFinanceStore(s => s.setBankBalance)
+  const getTotalInvestido = useFinanceStore(s => s.getTotalInvestido)
   const getCreditCardTotal = useFinanceStore(s => s.getCreditCardTotal)
   const syncing      = useFinanceStore(s => s.syncing)
 
@@ -16,22 +16,17 @@ export default function BalanceCard({ hidden = false }: { hidden?: boolean }) {
   const [newConta,     setNewConta]     = useState(0)
 
   const month        = getThisMonth()
-  // "Conta corrente" é um extrato: patrimônio base + soma de todas as
-  // transações marcadas com essa conta (ver getAccountBalance em
-  // lib/store.ts). Nenhuma tela mexe no valor bruto diretamente.
-  const conta         = getAccountBalance('Conta corrente')
-  const investimentos= getAccountBalance('C6 Investimentos')
+  // "Conta" aqui é o saldo do C6 cadastrado em /bancos — C6 é a conta
+  // corrente (ver comentário em pages/bancos.tsx). Editar aqui é o mesmo
+  // que editar o C6 lá: valor manual, sem ligação com o extrato.
+  const conta         = getBankBalance('C6')
+  const investimentos= getTotalInvestido()
   const totalCC      = getCreditCardTotal('C6') + getCreditCardTotal('Nubank')
   const fmt          = (v: number) => hidden ? '•••••' : formatCurrency(v)
 
   const openEditConta = () => { setNewConta(Math.max(0, conta)); setEditingConta(true) }
   const saveConta = () => {
-    // O valor digitado é o saldo final desejado; a base salva precisa
-    // descontar o que o extrato (transações já lançadas) já soma/subtrai,
-    // senão a correção some assim que a próxima transação for computada.
-    const baseline = patrimony.find(p => p.account === 'Conta corrente')?.balance || 0
-    const ledger = conta - baseline
-    updatePatrimony('Conta corrente', newConta - ledger)
+    setBankBalance('C6', newConta)
     setEditingConta(false)
   }
 
